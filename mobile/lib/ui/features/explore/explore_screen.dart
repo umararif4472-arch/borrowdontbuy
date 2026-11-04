@@ -7,6 +7,10 @@ import '../../../core/widgets/shared_widgets.dart';
 import '../../../data/models/item.dart';
 import '../../../state/app_state.dart';
 import '../item_detail/item_detail_screen.dart';
+import '../messages/messages_screen.dart';
+import '../notifications/notifications_screen.dart';
+import '../profile/user_profile_screen.dart';
+import 'item_map_view.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -20,6 +24,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   String? _category;
   double? _maxDistance;
   bool _onlyAvailable = false;
+  bool _showMap = false;
 
   @override
   void dispose() {
@@ -53,7 +58,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ],
         ),
         actions: [
-          UserAvatar(user: me, radius: 18),
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            ),
+            icon: Badge(
+              isLabelVisible:
+                  state.notificationsEnabled &&
+                  state.notificationBadgeCount > 0,
+              label: Text('${state.notificationBadgeCount}'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Messages',
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const MessagesScreen())),
+            icon: const Icon(Icons.chat_bubble_outline),
+          ),
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => UserProfileScreen(userId: me.id),
+              ),
+            ),
+            child: UserAvatar(user: me, radius: 18),
+          ),
           const SizedBox(width: 12),
         ],
       ),
@@ -127,8 +159,44 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ],
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: Row(
+              children: [
+                Text(
+                  items.length == 1
+                      ? '1 item nearby'
+                      : '${items.length} items nearby',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const Spacer(),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: false,
+                      icon: Icon(Icons.list, size: 16),
+                      label: Text('List'),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      icon: Icon(Icons.map_outlined, size: 16),
+                      label: Text('Map'),
+                    ),
+                  ],
+                  selected: {_showMap},
+                  onSelectionChanged: (s) => setState(() => _showMap = s.first),
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
+          ),
           Expanded(
-            child: items.isEmpty
+            child: _showMap
+                ? ItemMapView(items: items, maxDistanceKm: _maxDistance)
+                : items.isEmpty
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(32),

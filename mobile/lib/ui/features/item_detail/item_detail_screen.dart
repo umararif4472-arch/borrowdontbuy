@@ -1,55 +1,72 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/reviews_list.dart';
 import '../../../core/widgets/shared_widgets.dart';
+import '../../../data/models/item.dart';
 import '../../../state/app_state.dart';
+import '../not_found/not_found_screen.dart';
+import '../profile/user_profile_screen.dart';
+import 'photo_gallery_screen.dart';
 
 class ItemDetailScreen extends StatelessWidget {
   final String itemId;
   const ItemDetailScreen({super.key, required this.itemId});
 
+  Future<void> _share(BuildContext context, Item item) async {
+    final text =
+        'Borrow instead of buying: ${item.title} (${item.category}) — '
+        '${item.borrowTerms.dailyFee == null ? 'free to borrow' : '\$${item.borrowTerms.dailyFee}/day'}, '
+        'up to ${item.borrowTerms.maxDurationDays} days on Borrow Don\u2019t Buy.';
+    try {
+      final result = await SharePlus.instance.share(
+        ShareParams(text: text, subject: item.title),
+      );
+      if (result.status == ShareResultStatus.unavailable) {
+        throw StateError('share unavailable');
+      }
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Link copied')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final item = state.itemById(itemId);
+    final item = state.itemByIdOrNull(itemId);
+    if (item == null) {
+      return const NotFoundScreen(
+        message: 'That item is not listed anymore — it may have been removed by its owner.',
+      );
+    }
     final owner = state.userById(item.ownerId);
     final trust = state.trustFor(owner);
     final isOwn = item.ownerId == state.currentUser.id;
     final dist = distanceKm(state.currentUser.homeLocation, item.location);
+    final itemReviews = state.reviewsForItem(item.id);
     return Scaffold(
-      appBar: AppBar(title: const Text('Item details')),
+      appBar: AppBar(
+        title: const Text('Item details'),
+        actions: [
+          IconButton(
+            tooltip: 'Share item',
+            icon: const Icon(Icons.share_outlined),
+            onPressed: () => _share(context, item),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          Container(
-            height: 150,
-            decoration: BoxDecoration(
-              color: AppColors.creamDark,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    categoryIcon(item.category),
-                    size: 56,
-                    color: AppColors.terracotta,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    item.category,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.barkLight,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _PhotoGallery(item: item),
           const SizedBox(height: 16),
           Text(item.title, style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 6),
@@ -73,66 +90,77 @@ class ItemDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      UserAvatar(user: owner, radius: 22),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              owner.name,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            Text(
-                              owner.bio,
-                              style: Theme.of(context).textTheme.bodySmall,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => UserProfileScreen(userId: owner.id),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        UserAvatar(user: owner, radius: 22),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                owner.name,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              Text(
+                                owner.bio,
+                                style: Theme.of(context).textTheme.bodySmall,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
+                        if (state.showTrustScores) TrustBadge(result: trust),
+                        const Icon(Icons.chevron_right, size: 20),
+                      ],
+                    ),
+                    if (state.showTrustScores) ...[
+                      const SizedBox(height: 12),
+                      _BreakdownRow(
+                        label: 'On-time returns',
+                        points: trust.breakdown.onTimeReturns,
+                        max: 40,
                       ),
-                      TrustBadge(result: trust),
+                      _BreakdownRow(
+                        label: 'Reviews',
+                        points: trust.breakdown.reviews,
+                        max: 25,
+                      ),
+                      _BreakdownRow(
+                        label: 'Verified profile',
+                        points: trust.breakdown.verification,
+                        max: 10,
+                      ),
+                      _BreakdownRow(
+                        label: 'Account age',
+                        points: trust.breakdown.accountAge,
+                        max: 10,
+                      ),
+                      _BreakdownRow(
+                        label: 'Responsiveness',
+                        points: trust.breakdown.responsiveness,
+                        max: 15,
+                      ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  _BreakdownRow(
-                    label: 'On-time returns',
-                    points: trust.breakdown.onTimeReturns,
-                    max: 40,
-                  ),
-                  _BreakdownRow(
-                    label: 'Reviews',
-                    points: trust.breakdown.reviews,
-                    max: 25,
-                  ),
-                  _BreakdownRow(
-                    label: 'Verified profile',
-                    points: trust.breakdown.verification,
-                    max: 10,
-                  ),
-                  _BreakdownRow(
-                    label: 'Account age',
-                    points: trust.breakdown.accountAge,
-                    max: 10,
-                  ),
-                  _BreakdownRow(
-                    label: 'Responsiveness',
-                    points: trust.breakdown.responsiveness,
-                    max: 15,
-                  ),
-                  Text(
-                    'Typically replies in ~${owner.avgResponseMinutes} min',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+                    Text(
+                      'Typically replies in ~${owner.avgResponseMinutes} min · tap to view profile',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -161,11 +189,18 @@ class ItemDetailScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => _showRequestSheet(context, itemId),
+                onPressed: () => _showRequestSheet(context, item.id),
                 icon: const Icon(Icons.handshake_outlined),
                 label: const Text('Request to borrow'),
               ),
             ),
+          const SizedBox(height: 24),
+          Text(
+            'Reviews for this item (${itemReviews.length})',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          ReviewsList(reviews: itemReviews),
         ],
       ),
     );
@@ -190,6 +225,117 @@ class ItemDetailScreen extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => _BorrowSheet(itemId: itemId),
+    );
+  }
+}
+
+/// Photo strip for the item: PageView of network photos with a category
+/// tile fallback (also the whole UI for the one photo-less seed item).
+class _PhotoGallery extends StatefulWidget {
+  final Item item;
+  const _PhotoGallery({required this.item});
+  @override
+  State<_PhotoGallery> createState() => _PhotoGalleryState();
+}
+
+class _PhotoGalleryState extends State<_PhotoGallery> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = widget.item.photos;
+    if (photos.isEmpty) {
+      return Container(
+        height: 150,
+        decoration: BoxDecoration(
+          color: AppColors.creamDark,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                categoryIcon(widget.item.category),
+                size: 56,
+                color: AppColors.terracotta,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${widget.item.category} · no photos yet',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.barkLight,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: SizedBox(
+            height: 220,
+            child: PageView.builder(
+              itemCount: photos.length,
+              onPageChanged: (i) => setState(() => _index = i),
+              itemBuilder: (context, i) => GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        PhotoGalleryScreen(item: widget.item, initialIndex: i),
+                  ),
+                ),
+                child: Image.network(
+                  photos[i],
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : Container(
+                          color: AppColors.creamDark,
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                  errorBuilder: (_, _, _) => Container(
+                    color: AppColors.creamDark,
+                    child: Center(
+                      child: Icon(
+                        categoryIcon(widget.item.category),
+                        size: 56,
+                        color: AppColors.terracotta,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (photos.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(photos.length, (i) {
+                final active = i == _index;
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: active ? 18 : 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: active ? AppColors.terracotta : AppColors.sand,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                );
+              }),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -298,6 +444,9 @@ class _BorrowSheetState extends State<_BorrowSheet> {
   Widget build(BuildContext context) {
     final state = context.read<AppState>();
     final item = state.itemById(widget.itemId);
+    final pendingOverlaps = (_start != null && _end != null)
+        ? state.pendingRequestsOverlapping(widget.itemId, _start!, _end!)
+        : const [];
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -342,6 +491,35 @@ class _BorrowSheetState extends State<_BorrowSheet> {
             'Max ${item.borrowTerms.maxDurationDays} days for this item.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (pendingOverlaps.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.warning_amber,
+                    size: 18,
+                    color: AppColors.amber,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Heads up: ${pendingOverlaps.length == 1 ? 'another neighbor has' : '${pendingOverlaps.length} neighbors have'} a pending request for overlapping dates. The owner can only approve one — you can still send yours.',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           const SizedBox(height: 12),
           TextField(
             controller: _noteCtrl,

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/utils/trust_score.dart';
 import '../core/utils/formatters.dart';
@@ -6,22 +7,43 @@ import '../data/models/user.dart';
 import '../data/models/item.dart';
 import '../data/models/borrow_request.dart';
 import '../data/models/wishlist_item.dart';
+import '../data/models/message.dart';
+import '../data/models/app_notification.dart';
 import '../data/mock/seed_data.dart';
 
 class AppState extends ChangeNotifier {
+  static const _kSessionUserId = 'sessionUserId';
+  static const _kOnboardingSeen = 'onboardingSeen';
+
   late List<AppUser> _users;
   late List<Item> _items;
   late List<BorrowRequest> _requests;
   late List<WishlistItem> _wishlist;
   late List<Review> _reviews;
+  late List<Message> _messages;
   int _idCounter = 100;
 
+  String _currentUserId = 'u-maya';
+
+  /// Defaults keep widget/unit tests working without any session setup;
+  /// [restoreFromPrefs] applies the real persisted session at app start.
+  bool isLoggedIn = true;
+  bool onboardingSeen = true;
+  bool notificationsEnabled = true;
+  bool showTrustScores = true;
+  SharedPreferences? _prefs;
+
   AppState() {
+    _seedAll();
+  }
+
+  void _seedAll() {
     _users = List.of(seedUsers());
     _items = List.of(seedItems(_users));
     _requests = List.of(seedRequests());
     _reviews = List.of(seedReviews());
     _wishlist = List.of(seedWishlist());
+    _messages = List.of(seedMessages());
   }
 
   // For tests / custom seeding
@@ -31,12 +53,16 @@ class AppState extends ChangeNotifier {
     required List<BorrowRequest> requests,
     required List<WishlistItem> wishlist,
     required List<Review> reviews,
+    List<Message>? messages,
+    String currentUserId = 'u-maya',
   }) {
     _users = users;
     _items = items;
     _requests = requests;
     _wishlist = wishlist;
     _reviews = reviews;
+    _messages = List.of(messages ?? seedMessages());
+    _currentUserId = currentUserId;
   }
 
   List<AppUser> get users => List.unmodifiable(_users);
@@ -44,11 +70,26 @@ class AppState extends ChangeNotifier {
   List<BorrowRequest> get requests => List.unmodifiable(_requests);
   List<WishlistItem> get wishlist => List.unmodifiable(_wishlist);
   List<Review> get reviews => List.unmodifiable(_reviews);
+  List<Message> get messages => List.unmodifiable(_messages);
 
-  AppUser get currentUser => _users.firstWhere((u) => u.id == 'u-maya');
+  AppUser get currentUser => userById(_currentUserId);
   AppUser userById(String id) =>
-      _users.firstWhere((u) => u.id == id, orElse: () => currentUser);
+      _users.firstWhere((u) => u.id == id, orElse: () => _users.first);
+  AppUser? userByIdOrNull(String id) {
+    for (final u in _users) {
+      if (u.id == id) return u;
+    }
+    return null;
+  }
+
   Item itemById(String id) => _items.firstWhere((i) => i.id == id);
+  Item? itemByIdOrNull(String id) {
+    for (final i in _items) {
+      if (i.id == id) return i;
+    }
+    return null;
+  }
+
   List<Review> reviewsFor(String userId) =>
       _reviews.where((r) => r.revieweeId == userId).toList();
 
@@ -311,4 +352,533 @@ class AppState extends ChangeNotifier {
     );
     notifyListeners();
   }
+
+  // ---------------- Session / auth ----------------
+
+  /// Applies the persisted session (if any) from [prefs]. A fresh install
+  /// has no saved user, so the app starts logged out at Onboarding/Landing.
+  Future<void> restoreFromPrefs(SharedPreferences prefs) async {
+    _prefs = prefs;
+    onboardingSeen = prefs.getBool(_kOnboardingSeen) ?? false;
+    final savedId = prefs.getString(_kSessionUserId);
+    if (savedId != null && userByIdOrNull(savedId) != null) {
+      _currentUserId = savedId;
+      isLoggedIn = true;
+    } else {
+      isLoggedIn = false;
+    }
+    notifyListeners();
+  }
+
+  Future<void> markOnboardingSeen() async {
+    onboardingSeen = true;
+    await _prefs?.setBool(_kOnboardingSeen, true);
+    notifyListeners();
+  }
+
+  Future<void> _persistSession() async {
+    if (isLoggedIn) {
+      await _prefs?.setString(_kSessionUserId, _currentUserId);
+    } else {
+      await _prefs?.remove(_kSessionUserId);
+    }
+  }
+
+  /// Returns null on success, or an error message.
+  String? login(String email, String password) {
+    final e = email.trim().toLowerCase();
+    AppUser? found;
+    for (final u in _users) {
+      if (u.email.toLowerCase() == e) found = u;
+    }
+    if (found == null || found.password != password) {
+      return 'Wrong email or password.';
+    }
+    _currentUserId = found.id;
+    isLoggedIn = true;
+    _persistSession();
+    notifyListeners();
+    return null;
+  }
+
+  /// Instant demo login as any seed neighbor (no password check — the
+  /// account picker on the Login screen uses this).
+  void loginAs(AppUser user) {
+    _currentUserId = user.id;
+    isLoggedIn = true;
+    _persistSession();
+    notifyListeners();
+  }
+
+  /// Returns null on success, or an error message.
+  String? signUp({
+    required String name,
+    required String email,
+    required String password,
+    required String neighborhood,
+  }) {
+    final e = email.trim().toLowerCase();
+    if (_users.any((u) => u.email.toLowerCase() == e)) {
+      return 'An account already uses that email.';
+    }
+    _idCounter++;
+    final maya = userById('u-maya');
+    final user = AppUser(
+      id: 'u-new-$_idCounter',
+      name: name.trim(),
+      email: e,
+      password: password,
+      bio: 'New to the block — say hi!',
+      neighborhood: neighborhood.trim(),
+      homeLocation: LatLng(
+        maya.homeLocation.lat + 0.002,
+        maya.homeLocation.lng - 0.002,
+      ),
+      joinedAt: DateTime.now(),
+      phoneVerified: false,
+      emailVerified: false,
+      responseRate: 0,
+      avgResponseMinutes: 60,
+      stats: const UserStats(
+        successfulLends: 0,
+        successfulBorrows: 0,
+        onTimeReturns: 0,
+        lateReturns: 0,
+      ),
+      badges: const [],
+    );
+    _users.add(user);
+    _currentUserId = user.id;
+    isLoggedIn = true;
+    _persistSession();
+    notifyListeners();
+    return null;
+  }
+
+  void signOut() {
+    isLoggedIn = false;
+    _persistSession();
+    notifyListeners();
+  }
+
+  /// Returns null when a (demo) reset was "sent", or an error message.
+  String? requestPasswordReset(String email) {
+    final e = email.trim().toLowerCase();
+    final exists = _users.any((u) => u.email.toLowerCase() == e);
+    return exists ? null : 'No account uses that email.';
+  }
+
+  void resetDemoData() {
+    _seedAll();
+    _currentUserId = 'u-maya';
+    notificationsEnabled = true;
+    showTrustScores = true;
+    _persistSession();
+    notifyListeners();
+  }
+
+  // ---------------- Profile / verification ----------------
+
+  void updateProfile({String? name, String? bio, String? neighborhood}) {
+    final idx = _users.indexWhere((u) => u.id == _currentUserId);
+    if (idx < 0) return;
+    _users[idx] = _users[idx].copyWith(
+      name: name?.trim(),
+      bio: bio?.trim(),
+      neighborhood: neighborhood?.trim(),
+    );
+    notifyListeners();
+  }
+
+  void verifyPhone() {
+    final idx = _users.indexWhere((u) => u.id == _currentUserId);
+    if (idx < 0) return;
+    _users[idx] = _users[idx].copyWith(phoneVerified: true);
+    notifyListeners();
+  }
+
+  void verifyEmail() {
+    final idx = _users.indexWhere((u) => u.id == _currentUserId);
+    if (idx < 0) return;
+    _users[idx] = _users[idx].copyWith(emailVerified: true);
+    notifyListeners();
+  }
+
+  void setNotificationsEnabled(bool value) {
+    notificationsEnabled = value;
+    notifyListeners();
+  }
+
+  void setShowTrustScores(bool value) {
+    showTrustScores = value;
+    notifyListeners();
+  }
+
+  // ---------------- Manage my items ----------------
+
+  Item? updateItem(
+    String itemId, {
+    required String title,
+    required String category,
+    required String description,
+    required String condition,
+    required int maxDurationDays,
+    int? depositAmount,
+    int? dailyFee,
+    String? pickupPreference,
+    String? pickupInstructions,
+  }) {
+    final idx = _items.indexWhere((i) => i.id == itemId);
+    if (idx < 0) return null;
+    final old = _items[idx];
+    _items[idx] = old.copyWith(
+      title: title.trim(),
+      category: category,
+      description: description.trim(),
+      condition: condition.trim(),
+      borrowTerms: old.borrowTerms.copyWith(
+        maxDurationDays: maxDurationDays,
+        depositAmount: depositAmount,
+        clearDeposit: depositAmount == null,
+        dailyFee: dailyFee,
+        clearFee: dailyFee == null,
+        pickupPreference: pickupPreference,
+        pickupInstructions: pickupInstructions?.trim(),
+      ),
+    );
+    notifyListeners();
+    return _items[idx];
+  }
+
+  /// Returns null on success, or an explanation when deletion is blocked.
+  String? deleteItem(String itemId) {
+    final blocking = _requests.any(
+      (r) =>
+          r.itemId == itemId &&
+          (r.status == 'approved' || r.status == 'active'),
+    );
+    if (blocking) {
+      return 'This item has a borrow in progress — wait until it is returned before deleting it.';
+    }
+    // Decline any still-pending requests, then remove the item.
+    for (var i = 0; i < _requests.length; i++) {
+      final r = _requests[i];
+      if (r.itemId == itemId && r.status == 'pending') {
+        _requests[i] = r.copyWith(
+          status: 'declined',
+          respondedAt: DateTime.now(),
+        );
+      }
+    }
+    _items.removeWhere((i) => i.id == itemId);
+    notifyListeners();
+    return null;
+  }
+
+  void setItemAvailability(String itemId, String availability) {
+    final idx = _items.indexWhere((i) => i.id == itemId);
+    if (idx < 0) return;
+    _items[idx] = _items[idx].copyWith(availability: availability);
+    notifyListeners();
+  }
+
+  // ---------------- Reviews ----------------
+
+  bool hasReviewed(String requestId, String userId) =>
+      _reviews.any((r) => r.requestId == requestId && r.reviewerId == userId);
+
+  List<Review> reviewsForItem(String itemId) {
+    final list = _reviews.where((r) => r.itemId == itemId).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  /// Returns null on success, or an error message.
+  String? addReview(String requestId, int rating, String comment) {
+    final r = _requests.firstWhere(
+      (x) => x.id == requestId,
+      orElse: () => throw StateError('unknown request'),
+    );
+    if (r.status != 'returned' && r.status != 'reviewed') {
+      return 'Reviews open once the item is returned.';
+    }
+    if (rating < 1 || rating > 5) return 'Pick a star rating first.';
+    final me = currentUser;
+    if (hasReviewed(requestId, me.id)) {
+      return 'You have already reviewed this borrow.';
+    }
+    final item = itemById(r.itemId);
+    final iAmBorrower = r.borrowerId == me.id;
+    final revieweeId = iAmBorrower ? item.ownerId : r.borrowerId;
+    _idCounter++;
+    _reviews.insert(
+      0,
+      Review(
+        id: 'rev-new-$_idCounter',
+        requestId: requestId,
+        itemId: r.itemId,
+        reviewerId: me.id,
+        revieweeId: revieweeId,
+        reviewerRole: iAmBorrower ? 'borrower' : 'lender',
+        rating: rating,
+        comment: comment.trim(),
+        createdAt: DateTime.now(),
+      ),
+    );
+    // Both parties reviewed -> terminal 'reviewed'.
+    final reviewers = _reviews
+        .where((x) => x.requestId == requestId)
+        .map((x) => x.reviewerId)
+        .toSet();
+    if (reviewers.contains(r.borrowerId) && reviewers.contains(item.ownerId)) {
+      _replaceRequest(r.copyWith(status: 'reviewed'));
+    }
+    notifyListeners();
+    return null;
+  }
+
+  // ---------------- Issues ----------------
+
+  void reportIssue(String requestId, String reason, String note) {
+    final idx = _requests.indexWhere((r) => r.id == requestId);
+    if (idx < 0) return;
+    _requests[idx] = _requests[idx].copyWith(
+      issue: IssueReport(
+        reportedBy: currentUser.id,
+        reason: reason,
+        note: note.trim(),
+        reportedAt: DateTime.now(),
+      ),
+    );
+    notifyListeners();
+  }
+
+  // ---------------- Overlaps ----------------
+
+  bool _periodsOverlap(BorrowPeriod a, BorrowPeriod b) {
+    final as = dateOnly(a.start), ae = dateOnly(a.end);
+    final bs = dateOnly(b.start), be = dateOnly(b.end);
+    return !as.isAfter(be) && !bs.isAfter(ae);
+  }
+
+  /// Other *pending* requests for the same item whose dates overlap [req].
+  List<BorrowRequest> pendingOverlaps(BorrowRequest req) {
+    return _requests
+        .where(
+          (other) =>
+              other.id != req.id &&
+              other.itemId == req.itemId &&
+              other.status == 'pending' &&
+              _periodsOverlap(other.period, req.period),
+        )
+        .toList();
+  }
+
+  /// Pending requests for [itemId] overlapping an arbitrary date range —
+  /// used for the non-blocking warning in the borrow sheet.
+  List<BorrowRequest> pendingRequestsOverlapping(
+    String itemId,
+    DateTime start,
+    DateTime end,
+  ) {
+    final probe = BorrowPeriod(start: start, end: end);
+    return _requests
+        .where(
+          (r) =>
+              r.itemId == itemId &&
+              r.status == 'pending' &&
+              _periodsOverlap(r.period, probe),
+        )
+        .toList();
+  }
+
+  // ---------------- Messages ----------------
+
+  List<Message> messagesForRequest(String requestId) {
+    final list = _messages.where((m) => m.requestId == requestId).toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return list;
+  }
+
+  Message? lastMessageFor(String requestId) {
+    final list = messagesForRequest(requestId);
+    return list.isEmpty ? null : list.last;
+  }
+
+  AppUser otherPartyFor(BorrowRequest r) {
+    final ownerId = itemById(r.itemId).ownerId;
+    return userById(r.borrowerId == currentUser.id ? ownerId : r.borrowerId);
+  }
+
+  /// One conversation per request the current user is part of, most
+  /// recently active first (requests without messages sort by creation).
+  List<BorrowRequest> get myConversations {
+    final mine = _requests.where((r) {
+      if (itemByIdOrNull(r.itemId) == null) return false;
+      return r.borrowerId == currentUser.id ||
+          itemById(r.itemId).ownerId == currentUser.id;
+    }).toList();
+    DateTime activity(BorrowRequest r) =>
+        lastMessageFor(r.id)?.createdAt ?? r.createdAt;
+    mine.sort((a, b) => activity(b).compareTo(activity(a)));
+    return mine;
+  }
+
+  void sendMessage(String requestId, String body) {
+    final text = body.trim();
+    if (text.isEmpty) return;
+    _idCounter++;
+    _messages.add(
+      Message(
+        id: 'msg-new-$_idCounter',
+        requestId: requestId,
+        senderId: currentUser.id,
+        body: text,
+        createdAt: DateTime.now(),
+      ),
+    );
+    notifyListeners();
+  }
+
+  // ---------------- Derived notifications ----------------
+
+  List<DerivedNotification> get derivedNotifications {
+    final me = currentUser;
+    final out = <DerivedNotification>[];
+    void push(
+      BorrowRequest r,
+      String suffix,
+      String type,
+      String kind,
+      String title,
+      String body,
+      DateTime at,
+    ) {
+      out.add(
+        DerivedNotification(
+          id: 'dnf-${r.id}-$suffix',
+          type: type,
+          title: title,
+          body: body,
+          createdAt: at,
+          requestId: r.id,
+          itemId: r.itemId,
+          kind: kind,
+        ),
+      );
+    }
+
+    for (final r in _requests) {
+      final item = itemByIdOrNull(r.itemId);
+      if (item == null) continue;
+      final isLender = item.ownerId == me.id;
+      final isBorrower = r.borrowerId == me.id;
+      if (!isLender && !isBorrower) continue;
+      final borrower = userById(r.borrowerId);
+      final owner = userById(item.ownerId);
+      final other = isLender ? borrower : owner;
+
+      if (r.issue != null && r.issue!.reportedBy != me.id) {
+        push(
+          r,
+          'issue',
+          'issue-reported',
+          'action',
+          'Issue reported',
+          '${userById(r.issue!.reportedBy).name} reported an issue (${r.issue!.reason}) with ${item.title}.',
+          r.issue!.reportedAt,
+        );
+      }
+      switch (r.status) {
+        case 'pending':
+          if (isLender) {
+            push(
+              r,
+              'pending-in',
+              'request-received',
+              'action',
+              'New borrow request',
+              '${borrower.name} wants to borrow your ${item.title}.',
+              r.createdAt,
+            );
+          }
+          break;
+        case 'approved':
+          push(
+            r,
+            'approved',
+            'request-approved',
+            isLender ? 'action' : 'info',
+            isLender ? 'Confirm pickup' : 'Request approved',
+            isLender
+                ? 'Once ${other.name} picks up the ${item.title}, mark it picked up in Activity.'
+                : '${other.name} approved the ${item.title} — plan the pickup in Messages.',
+            r.respondedAt ?? r.createdAt,
+          );
+          break;
+        case 'declined':
+          if (isBorrower) {
+            push(
+              r,
+              'declined',
+              'request-declined',
+              'info',
+              'Request declined',
+              '${other.name} declined your request for ${item.title}.',
+              r.respondedAt ?? r.createdAt,
+            );
+          }
+          break;
+        case 'active':
+          if (r.isOverdue) {
+            push(
+              r,
+              'overdue',
+              'overdue',
+              'action',
+              isLender ? 'Item overdue' : 'Return overdue',
+              isLender
+                  ? '${other.name} still has your ${item.title} — it was due ${shortDate(r.period.end)}.'
+                  : 'The ${item.title} was due ${shortDate(r.period.end)}. Return it or message ${other.name}.',
+              r.period.end,
+            );
+          } else if (dueInDays(r.period.end) <= 1) {
+            push(
+              r,
+              'due-soon',
+              'return-reminder',
+              'action',
+              'Return coming up',
+              '${item.title} is ${dueLabel(r.period.end).toLowerCase()}.',
+              r.createdAt,
+            );
+          }
+          break;
+        case 'returned':
+          if (!hasReviewed(r.id, me.id)) {
+            push(
+              r,
+              'review',
+              'review-requested',
+              'action',
+              'Leave a review',
+              'How did borrowing ${item.title} go? Review ${other.name}.',
+              r.returnedAt ?? r.createdAt,
+            );
+          }
+          break;
+      }
+    }
+    // Action items first, newest first inside each group.
+    out.sort((a, b) {
+      final ka = a.kind == 'action' ? 0 : 1;
+      final kb = b.kind == 'action' ? 0 : 1;
+      if (ka != kb) return ka.compareTo(kb);
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    return out;
+  }
+
+  int get notificationBadgeCount =>
+      derivedNotifications.where((n) => n.kind == 'action').length;
 }

@@ -4,6 +4,20 @@ class BorrowPeriod {
   const BorrowPeriod({required this.start, required this.end});
 }
 
+/// Escalation record for problem borrows (port of web IssueReport).
+class IssueReport {
+  final String reportedBy;
+  final String reason;
+  final String note;
+  final DateTime reportedAt;
+  const IssueReport({
+    required this.reportedBy,
+    required this.reason,
+    required this.note,
+    required this.reportedAt,
+  });
+}
+
 class BorrowRequest {
   final String id;
   final String itemId;
@@ -16,6 +30,7 @@ class BorrowRequest {
   final DateTime? respondedAt;
   final DateTime? dueAt;
   final DateTime? returnedAt;
+  final IssueReport? issue;
   const BorrowRequest({
     required this.id,
     required this.itemId,
@@ -27,6 +42,7 @@ class BorrowRequest {
     this.respondedAt,
     this.dueAt,
     this.returnedAt,
+    this.issue,
   });
   bool get isOverdue {
     if (status != 'active' || dueAt == null) return false;
@@ -41,6 +57,7 @@ class BorrowRequest {
     DateTime? respondedAt,
     DateTime? dueAt,
     DateTime? returnedAt,
+    IssueReport? issue,
   }) {
     return BorrowRequest(
       id: id,
@@ -53,6 +70,7 @@ class BorrowRequest {
       respondedAt: respondedAt ?? this.respondedAt,
       dueAt: dueAt ?? this.dueAt,
       returnedAt: returnedAt ?? this.returnedAt,
+      issue: issue ?? this.issue,
     );
   }
 }

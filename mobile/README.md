@@ -18,14 +18,28 @@ flutter analyze
 ```
 lib/
 ├ core/       theme (terracotta / moss / cream, Material 3),
-│             trust-score calculator + formatters, shared widgets
-├ data/       models (User, Item, BorrowRequest, WishlistItem)
-│             and mock seed data ported from the web app
-├ state/      AppState (provider / ChangeNotifier) — filtering,
-│             request lifecycle, listing, wishlist pledges
-└ ui/         app shell (Explore, Wishlist, Activity, Profile +
-              List-item FAB) and feature screens
+│             trust-score calculator, map projection, formatters,
+│             shared widgets + reviews list
+├ data/       models (User, Item, BorrowRequest, WishlistItem,
+│             Message, AppNotification) and mock seed data
+├ state/      AppState (provider / ChangeNotifier) — auth session,
+│             filtering, request lifecycle, messages, reviews,
+│             derived notifications, wishlist, verification
+└ ui/         app root gate (Splash → Onboarding → Landing/Login →
+              AppShell) and feature screens: auth (login, sign up,
+              forgot password), explore (+ map view), item detail
+              (+ photo gallery), list-item wizard with drafts,
+              activity (+ review / report-issue sheets), messages,
+              notifications, wishlist, trust explainer, not-found,
+              profile (public profiles, edit, settings, verification,
+              manage my items)
 ```
+
+Demo accounts: every seeded neighbor signs in with
+`<firstname>.<lastname>@example.com` / `borrow123` (shown on the login
+screen, with one-tap neighbor login). Verification codes are demo-only:
+use `123456`. Session, onboarding, and listing drafts persist on-device
+via shared_preferences.
 
 State is in-memory for the prototype, same seed users/items/requests as
 the web app at the repo root, so trust scores match across both clients.

@@ -1,5 +1,6 @@
 import '../models/user.dart';
 import '../models/item.dart';
+import '../models/message.dart';
 import '../models/borrow_request.dart';
 import '../models/wishlist_item.dart';
 
@@ -23,6 +24,8 @@ List<AppUser> seedUsers() {
     AppUser(
       id: 'u-maya',
       name: 'Maya Chen',
+      email: 'maya.chen@example.com',
+      password: 'borrow123',
       bio: 'Weekend woodworker, weekday cook. Happy to lend the drill if you return it with a story.',
       neighborhood: 'Richmond',
       homeLocation: const LatLng(45.5, -122.63),
@@ -55,6 +58,8 @@ List<AppUser> seedUsers() {
     AppUser(
       id: 'u-joan',
       name: 'Joan Whitfield',
+      email: 'joan.whitfield@example.com',
+      password: 'borrow123',
       bio: 'Retired teacher. If it is in my garage, it is yours to borrow — just bring it back so the next neighbor can.',
       neighborhood: 'Sellwood',
       homeLocation: const LatLng(45.479, -122.656),
@@ -93,6 +98,8 @@ List<AppUser> seedUsers() {
     AppUser(
       id: 'u-tom',
       name: 'Tom Alvarez',
+      email: 'tom.alvarez@example.com',
+      password: 'borrow123',
       bio: 'The fix-it guy on the block. Tools are meant to be used, not dusted.',
       neighborhood: 'Mt. Tabor',
       homeLocation: const LatLng(45.511, -122.653),
@@ -125,6 +132,8 @@ List<AppUser> seedUsers() {
     AppUser(
       id: 'u-priya',
       name: 'Priya Sharma',
+      email: 'priya.sharma@example.com',
+      password: 'borrow123',
       bio: 'Gardener, tennis regular, and firm believer that every block needs a shared ladder.',
       neighborhood: 'Laurelhurst',
       homeLocation: const LatLng(45.528, -122.619),
@@ -157,6 +166,8 @@ List<AppUser> seedUsers() {
     AppUser(
       id: 'u-marcus',
       name: 'Marcus Webb',
+      email: 'marcus.webb@example.com',
+      password: 'borrow123',
       bio: 'I own more camping gear than my garage can explain. Ask away.',
       neighborhood: 'Kerns',
       homeLocation: const LatLng(45.518, -122.652),
@@ -183,6 +194,8 @@ List<AppUser> seedUsers() {
     AppUser(
       id: 'u-sana',
       name: 'Sana Iqbal',
+      email: 'sana.iqbal@example.com',
+      password: 'borrow123',
       bio: 'Canning season is a lifestyle. Jars included with the canner, obviously.',
       neighborhood: 'Woodstock',
       homeLocation: const LatLng(45.478, -122.629),
@@ -209,6 +222,8 @@ List<AppUser> seedUsers() {
     AppUser(
       id: 'u-diego',
       name: 'Diego Ramírez',
+      email: 'diego.ramirez@example.com',
+      password: 'borrow123',
       bio: 'New-ish here. The snowboard collects dust eight months a year — it should be on the mountain.',
       neighborhood: 'Alberta Arts',
       homeLocation: const LatLng(45.559, -122.648),
@@ -228,6 +243,8 @@ List<AppUser> seedUsers() {
     AppUser(
       id: 'u-nina',
       name: 'Nina Kowalski',
+      email: 'nina.kowalski@example.com',
+      password: 'borrow123',
       bio: 'Party supplies central. If your backyard needs string lights, I have got 300 feet of them.',
       neighborhood: 'Buckman',
       homeLocation: const LatLng(45.517, -122.649),
@@ -254,6 +271,8 @@ List<AppUser> seedUsers() {
     AppUser(
       id: 'u-leo',
       name: 'Leo Park',
+      email: 'leo.park@example.com',
+      password: 'borrow123',
       bio: 'Just moved in. The projector is the only thing I have unpacked so far.',
       neighborhood: 'Irvington',
       homeLocation: const LatLng(45.534, -122.651),
@@ -272,6 +291,33 @@ List<AppUser> seedUsers() {
     ),
   ];
 }
+
+const Map<String, List<String>> _photoSeeds = {
+  'i-drill': ['drill-1', 'drill-2'],
+  'i-mixer': ['mixer-1'],
+  'i-pasta': ['pasta-1'],
+  'i-tent': ['tent-1', 'tent-2'],
+  'i-washer': ['washer-1'],
+  'i-karaoke': ['karaoke-1'],
+  'i-saw': ['saw-1'],
+  'i-kayak': ['kayak-1', 'kayak-2', 'kayak-3'],
+  'i-projector': ['projector-1'],
+  'i-stroller': ['stroller-1'],
+  'i-tennis': ['tennis-1'],
+  'i-carpet': ['carpet-1'],
+  'i-cider': ['cider-1'],
+  'i-canner': ['canner-1'],
+  'i-snowboard': ['snowboard-1'],
+  'i-lights': ['lights-1'],
+  'i-sewing': ['sewing-1'],
+  'i-drone': ['drone-1'],
+  // i-campstove is deliberately photo-less, like the web app.
+  'i-ladder': ['ladder-1'],
+};
+
+List<String> _photosFor(String id) => (_photoSeeds[id] ?? const <String>[])
+    .map((s) => 'https://picsum.photos/seed/bdb-$s/640/480')
+    .toList();
 
 Item _item(
   String id,
@@ -296,6 +342,7 @@ Item _item(
     description: desc,
     category: cat,
     condition: cond,
+    photos: _photosFor(id),
     location: loc,
     availability: avail,
     borrowTerms: BorrowTerms(
@@ -1118,6 +1165,68 @@ List<WishlistItem> seedWishlist() {
       pointsPledged: 510,
       requestCount: 18,
       requestedByName: 'Leo Park',
+    ),
+  ];
+}
+
+Message _msg(
+  String id,
+  String reqId,
+  String sender,
+  String body,
+  int hoursAgo,
+) => Message(
+  id: id,
+  requestId: reqId,
+  senderId: sender,
+  body: body,
+  createdAt: _hoursAgo(hoursAgo),
+);
+
+/// Ported from web data/seed/messages.ts — two live threads for Maya.
+List<Message> seedMessages() {
+  return [
+    _msg(
+      'msg-1',
+      'req-out-kayak',
+      'u-tom',
+      'Hey Maya! Saw your kayak request — Saturday\'s forecast is 70° and glassy. Approving now, just bring the snacks you mentioned.',
+      24,
+    ),
+    _msg(
+      'msg-2',
+      'req-out-kayak',
+      'u-maya',
+      'Deal! Do I need anything for the roof? I drive a sedan.',
+      23,
+    ),
+    _msg(
+      'msg-3',
+      'req-out-kayak',
+      'u-tom',
+      'Sedan\'s fine — I\'ll pack the soft straps and show you the tie-down. I\'m home all Saturday morning.',
+      22,
+    ),
+    _msg(
+      'msg-4',
+      'req-active-karaoke',
+      'u-joan',
+      'Approved! It\'s on the porch — songbook\'s in the side pocket. Mic 2 squeaks if you shake it; that\'s normal.',
+      72,
+    ),
+    _msg(
+      'msg-5',
+      'req-active-karaoke',
+      'u-maya',
+      'Ha! Noted. The block party starts at 6 — you\'re officially invited.',
+      71,
+    ),
+    _msg(
+      'msg-6',
+      'req-active-karaoke',
+      'u-joan',
+      'Wouldn\'t miss it. Have it back by Sunday evening and we stay friends.',
+      48,
     ),
   ];
 }

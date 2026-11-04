@@ -1,25 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme/app_theme.dart';
 import 'state/app_state.dart';
-import 'ui/app_shell.dart';
+import 'ui/app_root.dart';
 
-void main() {
-  runApp(const BorrowDontBuyApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final state = AppState();
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await state.restoreFromPrefs(prefs);
+  } catch (_) {
+    // Prefs unavailable (should not happen on-device): fall back to the
+    // in-memory defaults so the app still opens.
+  }
+  runApp(BorrowDontBuyApp(state: state));
 }
 
 class BorrowDontBuyApp extends StatelessWidget {
-  const BorrowDontBuyApp({super.key});
+  final AppState state;
+  const BorrowDontBuyApp({super.key, required this.state});
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AppState>(
-      create: (_) => AppState(),
+    return ChangeNotifierProvider<AppState>.value(
+      value: state,
       child: MaterialApp(
         title: "Borrow Don't Buy",
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
-        home: const AppShell(),
+        home: const AppRoot(),
       ),
     );
   }

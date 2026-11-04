@@ -46,6 +46,8 @@ class UserBadge {
 class AppUser {
   final String id;
   final String name;
+  final String email;
+  final String password;
   final String bio;
   final String neighborhood;
   final LatLng homeLocation;
@@ -59,6 +61,8 @@ class AppUser {
   const AppUser({
     required this.id,
     required this.name,
+    this.email = '',
+    this.password = '',
     required this.bio,
     required this.neighborhood,
     required this.homeLocation,
@@ -70,16 +74,25 @@ class AppUser {
     required this.stats,
     required this.badges,
   });
-  AppUser copyWith({UserStats? stats}) {
+  AppUser copyWith({
+    UserStats? stats,
+    String? name,
+    String? bio,
+    String? neighborhood,
+    bool? phoneVerified,
+    bool? emailVerified,
+  }) {
     return AppUser(
       id: id,
-      name: name,
-      bio: bio,
-      neighborhood: neighborhood,
+      name: name ?? this.name,
+      email: email,
+      password: password,
+      bio: bio ?? this.bio,
+      neighborhood: neighborhood ?? this.neighborhood,
       homeLocation: homeLocation,
       joinedAt: joinedAt,
-      phoneVerified: phoneVerified,
-      emailVerified: emailVerified,
+      phoneVerified: phoneVerified ?? this.phoneVerified,
+      emailVerified: emailVerified ?? this.emailVerified,
       responseRate: responseRate,
       avgResponseMinutes: avgResponseMinutes,
       stats: stats ?? this.stats,
