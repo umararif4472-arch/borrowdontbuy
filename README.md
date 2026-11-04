@@ -36,19 +36,19 @@ through `@/services` and `@/context`.**
 
 ```
 src/
-├── types/          # Data models (User, Item, BorrowRequest, Review, …)
-├── utils/          # Pure logic — trustScore, dates, distance, filters,
+├ types/          # Data models (User, Item, BorrowRequest, Review, …)
+├ utils/          # Pure logic — trustScore, dates, distance, filters,
 │                   #   validation, mapProjection (all unit-tested)
-├── data/seed/      # Mock seed data (builders with relative dates)
-├── services/       # Data access layer: in-memory "DB" + async API that
+├ data/seed/      # Mock seed data (builders with relative dates)
+├ services/       # Data access layer: in-memory "DB" + async API that
 │                   #   simulates latency and enforces all business rules
-├── context/        # AppProvider + useReducer (global state, hydration)
-├── hooks/          # useItems, useFilteredItems, useTrustScore(s),
+├ context/        # AppProvider + useReducer (global state, hydration)
+├ hooks/          # useItems, useFilteredItems, useTrustScore(s),
 │                   #   useRequests, useNotifications, useMessages, useAsync
-├── components/     # Dumb/presentational: ui/ kit, items/, reviews/, layout/
-└── features/       # Feature pages: landing, browse (incl. ItemMap),
-                    #   item-detail, list-item (form reducer + drafts),
-                    #   dashboard, profile, messages, not-found
+├ components/     # Dumb/presentational: ui/ kit, items/, reviews/, layout/
+└ features/       # Feature pages: landing, browse (incl. ItemMap),
+                  #   item-detail, list-item (form reducer + drafts),
+                  #   dashboard, profile, messages, not-found
 ```
 
 ### Key design decisions
@@ -82,7 +82,7 @@ src/
 ```
 pending → approved → active → completed
    ↘ declined    (markPickedUp)  (markReturned — updates user stats,
-                                  which feeds the trust score)
+                                   which feeds the trust score)
 ```
 
 Seeded state covers every phase: a pending incoming request (approve/decline
