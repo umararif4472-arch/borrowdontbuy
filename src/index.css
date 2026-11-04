@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/*
+ * Borrow Don't Buy theme — warm, neighborly, trustworthy.
+ * Terracotta (primary/action), moss green (trust/success), cream+bark
+ * (canvas + warm text). No corporate blue SaaS gradients here.
+ */
+@theme {
+  /* Terracotta — the "do something" color */
+  --color-terracotta-50: #faf1eb;
+  --color-terracotta-100: #f5dfd2;
+  --color-terracotta-200: #ecc3ac;
+  --color-terracotta-300: #e0a181;
+  --color-terracotta-400: #d07d5b;
+  --color-terracotta-500: #c05f3b;
+  --color-terracotta-600: #a44b2d;
+  --color-terracotta-700: #863d24;
+  --color-terracotta-800: #66301e;
+  --color-terracotta-900: #4c2518;
+
+  /* Moss — trust, success, "the block" */
+  --color-moss-50: #f2f6ef;
+  --color-moss-100: #e3eedd;
+  --color-moss-200: #c9dec0;
+  --color-moss-300: #a6c89d;
+  --color-moss-400: #7fa973;
+  --color-moss-500: #5f8b52;
+  --color-moss-600: #4a7040;
+  --color-moss-700: #3a5833;
+  --color-moss-800: #2d4528;
+  --color-moss-900: #1f311c;
+
+  /* Warm neutrals */
+  --color-cream: #fbf7f0;
+  --color-parchment: #f4ede1;
+  --color-bark: #44392f;
+  --color-bark-light: #7a6a5b;
+
+  /* Friendly rounded display face for headings (system fallbacks) */
+  --font-display: "Georgia", "Trebuchet MS", ui-serif, serif;
+  --font-sans: "Segoe UI", "Trebuchet MS", system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-cream);
+    color: var(--color-bark);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: var(--color-terracotta-200);
+  }
+
+  /* Date inputs render a focus ring from the UA; normalize lightly */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+  }
+}
+
+/* Toast entrance */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Hide scrollbars on horizontal chip rows (visual only — still scrollable) */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

@@ -1,0 +1,119 @@
+import { Routes, Route } from 'react-router-dom'
+import { useApp } from '@/context/AppContext'
+import { AppHydrationError, AppSplash } from '@/components/layout/BootScreens'
+import { Layout } from '@/components/layout/Layout'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { LandingPage } from '@/features/landing/LandingPage'
+import { BrowsePage } from '@/features/browse/BrowsePage'
+import { ItemDetailPage } from '@/features/item-detail/ItemDetailPage'
+import { ListItemPage } from '@/features/list-item/ListItemPage'
+import { DashboardPage } from '@/features/dashboard/DashboardPage'
+import { MessagesPage } from '@/features/messages/MessagesPage'
+import { ProfilePage } from '@/features/profile/ProfilePage'
+import { TrustExplainerPage } from '@/features/trust/TrustExplainerPage'
+import { NotFoundPage } from '@/features/not-found/NotFoundPage'
+import { useTierWatcher } from '@/hooks/useTierWatcher'
+
+/**
+ * App routes. Hydration gates the shell: while global state loads (real
+ * async delay from the mock services) we show the splash; failures show a
+ * retry screen. Everything else lives in the Layout (navbar + tab bar +
+ * footer) via nested routes.
+ */
+export default function App() {
+  const { state, retryHydration } = useApp()
+  const phase = state.hydration.phase
+
+  // Visible tier-up/down moments fire from anywhere in the app.
+  useTierWatcher()
+
+  if (phase === 'loading') return <AppSplash />
+  if (phase === 'error') {
+    return (
+      <AppHydrationError
+        message={state.hydration.message ?? 'Unknown error'}
+        onRetry={retryHydration}
+      />
+    )
+  }
+
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route
+          index
+          element={
+            <ErrorBoundary>
+              <LandingPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="browse"
+          element={
+            <ErrorBoundary>
+              <BrowsePage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="item/:id"
+          element={
+            <ErrorBoundary>
+              <ItemDetailPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="list-item"
+          element={
+            <ErrorBoundary>
+              <ListItemPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="dashboard"
+          element={
+            <ErrorBoundary>
+              <DashboardPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="messages"
+          element={
+            <ErrorBoundary>
+              <MessagesPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="messages/:requestId"
+          element={
+            <ErrorBoundary>
+              <MessagesPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="profile/:id"
+          element={
+            <ErrorBoundary>
+              <ProfilePage />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="trust"
+          element={
+            <ErrorBoundary>
+              <TrustExplainerPage />
+            </ErrorBoundary>
+          }
+        />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
+  )
+}

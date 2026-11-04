@@ -1,0 +1,29 @@
+import { ITEM_CATEGORIES } from '@/types'
+import type { ItemCategory } from '@/types'
+
+/**
+ * Friendly emoji + one-line blurb per category. One source of truth for
+ * cards, map pins, filter chips, and the list-item form.
+ */
+export const CATEGORY_META: Record<ItemCategory, { emoji: string; blurb: string }> = {
+  Tools: { emoji: '🔧', blurb: 'Drills, saws, washers — the loud-but-useful kind' },
+  'Outdoor & Camping': { emoji: '⛺', blurb: 'Tents, kayaks, stoves for the fresh-air weekends' },
+  'Party & Events': { emoji: '🎉', blurb: 'Karaoke, lights, and other block-party weapons' },
+  Kitchen: { emoji: '🍳', blurb: 'Mixers, canners, pasta rollers for ambitious cooking' },
+  Electronics: { emoji: '🔌', blurb: 'Projectors, drones, and other once-a-year tech' },
+  Sports: { emoji: '🎾', blurb: 'Rackets, boards, and gear that deserves more outings' },
+  'Kids & Baby': { emoji: '🧸', blurb: 'Strollers and kid haulers, gently outgrown' },
+  Other: { emoji: '📦', blurb: 'The wonderful miscellany of neighbor garages' },
+}
+
+/** Emoji for a category (safe for unknown values — returns 📦). */
+export function categoryEmoji(category: string): string {
+  const meta = CATEGORY_META[category as ItemCategory]
+  return meta ? meta.emoji : '📦'
+}
+
+/** Ordered dropdown/chip options. */
+export const CATEGORY_OPTIONS = ITEM_CATEGORIES.map((category) => ({
+  value: category,
+  label: `${CATEGORY_META[category].emoji} ${category}`,
+}))
