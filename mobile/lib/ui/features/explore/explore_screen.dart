@@ -50,10 +50,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
             const Text(
               "Borrow Don't Buy",
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
               '${me.neighborhood} · ${me.name}',
               style: Theme.of(context).textTheme.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -78,15 +82,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ).push(MaterialPageRoute(builder: (_) => const MessagesScreen())),
             icon: const Icon(Icons.chat_bubble_outline),
           ),
-          GestureDetector(
-            onTap: () => Navigator.of(context).push(
+          IconButton(
+            tooltip: 'Your profile',
+            onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => UserProfileScreen(userId: me.id),
               ),
             ),
-            child: UserAvatar(user: me, radius: 18),
+            icon: UserAvatar(user: me, radius: 18),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
@@ -103,7 +108,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           ),
           SizedBox(
-            height: 44,
+            height: 48,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -132,29 +137,35 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 4,
               children: [
                 const Text(
                   'Distance:',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
-                const SizedBox(width: 8),
                 ...<double?>[null, 1, 3, 5].map(
-                  (d) => Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ChoiceChip(
-                      label: Text(d == null ? 'Any' : '${d.toInt()} km'),
-                      selected: _maxDistance == d,
-                      onSelected: (_) => setState(() => _maxDistance = d),
-                    ),
+                  (d) => ChoiceChip(
+                    label: Text(d == null ? 'Any' : '${d.toInt()} km'),
+                    selected: _maxDistance == d,
+                    onSelected: (_) => setState(() => _maxDistance = d),
                   ),
                 ),
-                const Spacer(),
-                const Text('Available only', style: TextStyle(fontSize: 13)),
-                Switch(
-                  value: _onlyAvailable,
-                  activeThumbColor: AppColors.moss,
-                  onChanged: (v) => setState(() => _onlyAvailable = v),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Available only',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    Switch(
+                      value: _onlyAvailable,
+                      activeThumbColor: AppColors.moss,
+                      onChanged: (v) => setState(() => _onlyAvailable = v),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -163,13 +174,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
             child: Row(
               children: [
-                Text(
-                  items.length == 1
-                      ? '1 item nearby'
-                      : '${items.length} items nearby',
-                  style: Theme.of(context).textTheme.bodySmall,
+                Expanded(
+                  child: Text(
+                    items.length == 1
+                        ? '1 item nearby'
+                        : '${items.length} items nearby',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 SegmentedButton<bool>(
                   segments: const [
                     ButtonSegment(
@@ -226,120 +241,171 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       ),
                     ),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                    itemCount: items.length,
-                    itemBuilder: (context, i) {
-                      final item = items[i];
-                      final owner = state.userById(item.ownerId);
-                      final dist = distanceKm(me.homeLocation, item.location);
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Card(
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(18),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    ItemDetailScreen(itemId: item.id),
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  CategoryTile(
-                                    category: item.category,
-                                    size: 64,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item.title,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${item.category} · ${distanceLabel(dist)}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 4,
-                                          children: [
-                                            _MiniChip(
-                                              text:
-                                                  item.borrowTerms.dailyFee ==
-                                                      null
-                                                  ? 'Free'
-                                                  : '\$${item.borrowTerms.dailyFee}/day',
-                                            ),
-                                            _MiniChip(
-                                              text:
-                                                  item
-                                                          .borrowTerms
-                                                          .depositAmount ==
-                                                      null
-                                                  ? 'No deposit'
-                                                  : '\$${item.borrowTerms.depositAmount} deposit',
-                                            ),
-                                            _MiniChip(
-                                              text: item.isAvailable
-                                                  ? 'Available'
-                                                  : item.availability ==
-                                                        'borrowed'
-                                                  ? 'Borrowed'
-                                                  : 'Unavailable',
-                                              highlight: item.isAvailable,
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Row(
-                                          children: [
-                                            UserAvatar(user: owner, radius: 12),
-                                            const SizedBox(width: 6),
-                                            Expanded(
-                                              child: Text(
-                                                owner.name,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            TrustBadge(
-                                              result: state.trustFor(owner),
-                                              compact: true,
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                : Builder(
+                    builder: (context) {
+                      final grouped = groupItemsByCategory(items);
+                      return ListView(
+                        padding: const EdgeInsets.fromLTRB(
+                          16,
+                          8,
+                          16,
+                          kBottomListPadding,
                         ),
+                        children: [
+                          for (final entry in grouped.entries) ...[
+                            _CategorySectionHeader(
+                              category: entry.key,
+                              count: entry.value.length,
+                              isFirst: entry.key == grouped.keys.first,
+                            ),
+                            for (final item in entry.value)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _ItemCard(item: item),
+                              ),
+                          ],
+                        ],
                       );
                     },
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Section header for one category group on Explore — the "separate
+/// portions" neighbours browse by.
+class _CategorySectionHeader extends StatelessWidget {
+  final String category;
+  final int count;
+  final bool isFirst;
+  const _CategorySectionHeader({
+    required this.category,
+    required this.count,
+    required this.isFirst,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(top: isFirst ? 4 : 18, bottom: 10),
+      child: Row(
+        children: [
+          Icon(categoryIcon(category), size: 20, color: AppColors.terracotta),
+          const SizedBox(width: 8),
+          Text(
+            category,
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            count == 1 ? '1 item' : '$count items',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ItemCard extends StatelessWidget {
+  final Item item;
+  const _ItemCard({required this.item});
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final owner = state.userById(item.ownerId);
+    final me = state.currentUser;
+    final dist = distanceKm(me.homeLocation, item.location);
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: item.id)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ItemPhoto.forItem(item, width: 72, height: 72),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${item.category} · ${distanceLabel(dist)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        _MiniChip(
+                          text: item.borrowTerms.dailyFee == null
+                              ? 'Free'
+                              : '\$${item.borrowTerms.dailyFee}/day',
+                        ),
+                        _MiniChip(
+                          text: item.borrowTerms.depositAmount == null
+                              ? 'No deposit'
+                              : '\$${item.borrowTerms.depositAmount} deposit',
+                        ),
+                        _MiniChip(
+                          text: item.isAvailable
+                              ? 'Available'
+                              : item.availability == 'borrowed'
+                              ? 'Borrowed'
+                              : 'Unavailable',
+                          highlight: item.isAvailable,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        UserAvatar(user: owner, radius: 12),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            owner.name,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (state.showTrustScores)
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: TrustBadge(
+                                result: state.trustFor(owner),
+                                compact: true,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

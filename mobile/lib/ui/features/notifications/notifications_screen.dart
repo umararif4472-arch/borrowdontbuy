@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/shared_widgets.dart';
 import '../../../data/models/app_notification.dart';
 import '../../../state/app_state.dart';
 import '../activity/activity_screen.dart';
@@ -83,7 +84,12 @@ class NotificationsScreen extends StatelessWidget {
               ),
             )
           : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                kBottomListPadding,
+              ),
               itemCount: feed.length,
               itemBuilder: (context, i) =>
                   _NotificationTile(notification: feed[i]),

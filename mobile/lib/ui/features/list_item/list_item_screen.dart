@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/widgets/shared_widgets.dart';
 import '../../../data/models/item.dart';
 import '../../../state/app_state.dart';
 
@@ -67,6 +69,12 @@ class _ListItemScreenState extends State<ListItemScreen> {
   int _step = 0;
   bool _draftLoaded = false;
 
+  /// Photo sources for this listing — a mix of seeded network URLs (when
+  /// editing) and local file paths picked on this device. Max 5.
+  final List<String> _photos = [];
+  static const int _maxPhotos = 5;
+  final ImagePicker _picker = ImagePicker();
+
   bool get _isEdit => widget.existingItem != null;
 
   static const _stepNames = ['Details', 'Terms', 'Review & publish'];
@@ -80,6 +88,7 @@ class _ListItemScreenState extends State<ListItemScreen> {
       _desc.text = item.description;
       _condition.text = item.condition;
       _category = item.category;
+      _photos.addAll(item.photos);
       _maxDays.text = '${item.borrowTerms.maxDurationDays}';
       _deposit.text = item.borrowTerms.depositAmount?.toString() ?? '';
       _fee.text = item.borrowTerms.dailyFee?.toString() ?? '';
@@ -149,6 +158,13 @@ class _ListItemScreenState extends State<ListItemScreen> {
     _fee.text = '${d['fee'] ?? ''}';
     _pickupPref = '${d['pickupPref'] ?? 'either'}';
     _pickupNotes.text = '${d['pickupNotes'] ?? ''}';
+    _photos
+      ..clear()
+      ..addAll(
+        (d['photos'] as List? ?? const [])
+            .map((e) => '$e')
+            .where((s) => s.isNotEmpty),
+      );
     final s = d['step'];
     if (s is int && s >= 0 && s <= 2) _step = s;
   }
@@ -162,6 +178,7 @@ class _ListItemScreenState extends State<ListItemScreen> {
       _deposit.clear();
       _fee.clear();
       _pickupNotes.clear();
+      _photos.clear();
       _category = 'Tools';
       _pickupPref = 'either';
       _step = 0;
@@ -178,6 +195,7 @@ class _ListItemScreenState extends State<ListItemScreen> {
         'description': _desc.text,
         'condition': _condition.text,
         'category': _category,
+        'photos': List.of(_photos),
         'maxDays': _maxDays.text,
         'deposit': _deposit.text,
         'fee': _fee.text,
@@ -204,6 +222,60 @@ class _ListItemScreenState extends State<ListItemScreen> {
   int? _parseOptional(String v) =>
       v.trim().isEmpty ? null : int.tryParse(v.trim());
 
+  void _addPhotoPaths(Iterable<String> paths) {
+    final room = _maxPhotos - _photos.length;
+    if (room <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Up to 5 photos per listing.')),
+      );
+      return;
+    }
+    final added = paths.take(room).toList();
+    if (added.isEmpty) return;
+    setState(() => _photos.addAll(added));
+    _saveDraft();
+    if (added.length < paths.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Up to 5 photos per listing.')),
+      );
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    try {
+      final picked = await _picker.pickMultiImage();
+      _addPhotoPaths(picked.map((f) => f.path));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open the gallery on this device.'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    try {
+      final picked = await _picker.pickImage(source: ImageSource.camera);
+      if (picked != null) _addPhotoPaths([picked.path]);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open the camera on this device.'),
+          ),
+        );
+      }
+    }
+  }
+
+  void _removePhoto(int index) {
+    setState(() => _photos.removeAt(index));
+    _saveDraft();
+  }
+
   void _next() {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _step = (_step + 1).clamp(0, 2));
@@ -224,6 +296,7 @@ class _ListItemScreenState extends State<ListItemScreen> {
         dailyFee: _parseOptional(_fee.text),
         pickupPreference: _pickupPref,
         pickupInstructions: _pickupNotes.text,
+        photos: List.of(_photos),
       );
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Listing updated.')));
@@ -238,6 +311,7 @@ class _ListItemScreenState extends State<ListItemScreen> {
         dailyFee: _parseOptional(_fee.text),
         pickupPreference: _pickupPref,
         pickupInstructions: _pickupNotes.text,
+        photos: List.of(_photos),
       );
       ListItemDraft.clear();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -253,6 +327,42 @@ class _ListItemScreenState extends State<ListItemScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(_isEdit ? 'Edit item' : 'List an item')),
+      // Action row lives in the bottom bar (SafeArea + keyboard inset),
+      // so it can never cover the form content above it.
+      bottomNavigationBar: !_draftLoaded
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  10,
+                  16,
+                  12 + MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: Row(
+                  children: [
+                    if (_step > 0)
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => setState(() => _step--),
+                          child: const Text('Back'),
+                        ),
+                      ),
+                    if (_step > 0) const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _step < 2 ? _next : _publish,
+                        child: Text(
+                          _step < 2
+                              ? 'Continue'
+                              : (_isEdit ? 'Save changes' : 'Publish listing'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
       body: !_draftLoaded
           ? const Center(child: CircularProgressIndicator())
           : Form(
@@ -304,38 +414,11 @@ class _ListItemScreenState extends State<ListItemScreen> {
                   ),
                   Expanded(
                     child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                       children: [
                         if (_step == 0) ..._detailsStep(),
                         if (_step == 1) ..._termsStep(),
                         if (_step == 2) ..._reviewStep(),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-                    child: Row(
-                      children: [
-                        if (_step > 0)
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => setState(() => _step--),
-                              child: const Text('Back'),
-                            ),
-                          ),
-                        if (_step > 0) const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _step < 2 ? _next : _publish,
-                            child: Text(
-                              _step < 2
-                                  ? 'Continue'
-                                  : (_isEdit
-                                        ? 'Save changes'
-                                        : 'Publish listing'),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -396,6 +479,92 @@ class _ListItemScreenState extends State<ListItemScreen> {
         validator: (v) => (v == null || v.trim().isEmpty)
             ? 'Describe the condition honestly.'
             : null,
+      ),
+      const SizedBox(height: 20),
+      Row(
+        children: [
+          const Text(
+            'Photos',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${_photos.length}/$_maxPhotos',
+            style: const TextStyle(color: Colors.black54, fontSize: 13),
+          ),
+        ],
+      ),
+      const SizedBox(height: 4),
+      const Text(
+        'Photos help neighbors trust your listing.',
+        style: TextStyle(color: Colors.black54, fontSize: 13),
+      ),
+      const SizedBox(height: 10),
+      if (_photos.isNotEmpty)
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: List.generate(_photos.length, (i) {
+            return Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: 76,
+                    height: 76,
+                    child: itemPhotoImage(
+                      _photos[i],
+                      category: _category,
+                      fit: BoxFit.cover,
+                      fallbackSize: 76,
+                      width: 76,
+                      height: 76,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: GestureDetector(
+                    onTap: () => _removePhoto(i),
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ),
+      if (_photos.isNotEmpty) const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _photos.length >= _maxPhotos ? null : _pickFromGallery,
+              icon: const Icon(Icons.photo_library_outlined, size: 18),
+              label: const Text('Add from gallery'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _photos.length >= _maxPhotos ? null : _takePhoto,
+              icon: const Icon(Icons.camera_alt_outlined, size: 18),
+              label: const Text('Take a photo'),
+            ),
+          ),
+        ],
       ),
     ];
   }
@@ -495,6 +664,12 @@ class _ListItemScreenState extends State<ListItemScreen> {
             children: [
               row('Title', _title.text.trim()),
               row('Category', _category),
+              row(
+                'Photos',
+                _photos.isEmpty
+                    ? 'None — the category picture will be shown'
+                    : '${_photos.length} photo${_photos.length == 1 ? '' : 's'}',
+              ),
               row('Description', _desc.text.trim()),
               row('Condition', _condition.text.trim()),
               row('Max days', _maxDays.text.trim()),

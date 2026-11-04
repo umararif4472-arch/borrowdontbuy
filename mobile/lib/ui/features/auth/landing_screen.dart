@@ -13,7 +13,7 @@ class LandingScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 36, 24, 32),
+          padding: const EdgeInsets.fromLTRB(16, 36, 16, 32),
           children: [
             Container(
               width: 76,

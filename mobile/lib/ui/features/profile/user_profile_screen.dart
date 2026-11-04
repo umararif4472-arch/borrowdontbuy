@@ -7,6 +7,7 @@ import '../../../core/widgets/shared_widgets.dart';
 import '../../../data/models/user.dart';
 import '../../../state/app_state.dart';
 import '../item_detail/item_detail_screen.dart';
+import '../messages/chat_screen.dart';
 import '../not_found/not_found_screen.dart';
 import '../trust/trust_explainer_screen.dart';
 import 'edit_profile_screen.dart';
@@ -36,7 +37,7 @@ class UserProfileScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(isOwn ? 'Profile' : 'Neighbor profile')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, kBottomListPadding),
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,6 +65,21 @@ class UserProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(user.bio),
+          if (!isOwn) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ChatScreen.forUser(otherUserId: user.id),
+                  ),
+                ),
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: Text('Message ${user.name.split(' ').first}'),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           if (state.showTrustScores)
             Card(
@@ -90,17 +106,21 @@ class UserProfileScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Trust score',
-                                style: TextStyle(fontWeight: FontWeight.w700),
-                              ),
-                              TrustBadge(result: trust),
-                            ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Trust score',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: TrustBadge(result: trust),
+                                ),
+                              ],
+                            ),
                           ),
-                          const Spacer(),
                           const Icon(Icons.chevron_right),
                         ],
                       ),
@@ -207,7 +227,12 @@ class UserProfileScreen extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Card(
                   child: ListTile(
-                    leading: CategoryTile(category: item.category, size: 44),
+                    leading: ItemPhoto.forItem(
+                      item,
+                      width: 44,
+                      height: 44,
+                      radius: 12,
+                    ),
                     title: Text(
                       item.title,
                       maxLines: 1,

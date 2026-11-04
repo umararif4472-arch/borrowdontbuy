@@ -19,7 +19,7 @@ class WishlistScreen extends StatelessWidget {
         ),
       ),
       body: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, kBottomListPadding),
         itemCount: state.wishlist.length,
         itemBuilder: (context, i) {
           final w = state.wishlist[i];

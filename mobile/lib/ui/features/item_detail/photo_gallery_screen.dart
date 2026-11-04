@@ -56,15 +56,11 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
                     itemCount: photos.length,
                     onPageChanged: (i) => setState(() => _index = i),
                     itemBuilder: (context, i) => InteractiveViewer(
-                      child: Image.network(
+                      child: itemPhotoImage(
                         photos[i],
+                        category: widget.item.category,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) => Center(
-                          child: CategoryTile(
-                            category: widget.item.category,
-                            size: 120,
-                          ),
-                        ),
+                        fallbackSize: 240,
                       ),
                     ),
                   ),

@@ -63,7 +63,7 @@ class _RequestList extends StatelessWidget {
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, kBottomListPadding),
       itemCount: list.length,
       itemBuilder: (context, i) =>
           _RequestCard(request: list[i], isLending: isLending),
@@ -153,7 +153,7 @@ class _RequestCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CategoryTile(category: item.category, size: 48),
+                  ItemPhoto.forItem(item, width: 48, height: 48, radius: 12),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(

@@ -9,6 +9,7 @@ import '../../../core/widgets/reviews_list.dart';
 import '../../../core/widgets/shared_widgets.dart';
 import '../../../data/models/item.dart';
 import '../../../state/app_state.dart';
+import '../messages/chat_screen.dart';
 import '../not_found/not_found_screen.dart';
 import '../profile/user_profile_screen.dart';
 import 'photo_gallery_screen.dart';
@@ -123,7 +124,14 @@ class ItemDetailScreen extends StatelessWidget {
                             ],
                           ),
                         ),
-                        if (state.showTrustScores) TrustBadge(result: trust),
+                        if (state.showTrustScores)
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: TrustBadge(result: trust),
+                            ),
+                          ),
                         const Icon(Icons.chevron_right, size: 20),
                       ],
                     ),
@@ -194,6 +202,24 @@ class ItemDetailScreen extends StatelessWidget {
                 label: const Text('Request to borrow'),
               ),
             ),
+          if (!isOwn) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ChatScreen.forItem(
+                      itemId: item.id,
+                      otherUserId: owner.id,
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: const Text('Ask about this item'),
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           Text(
             'Reviews for this item (${itemReviews.length})',
@@ -289,28 +315,13 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
                         PhotoGalleryScreen(item: widget.item, initialIndex: i),
                   ),
                 ),
-                child: Image.network(
+                child: itemPhotoImage(
                   photos[i],
+                  category: widget.item.category,
                   fit: BoxFit.cover,
+                  fallbackSize: 112,
                   width: double.infinity,
-                  loadingBuilder: (context, child, progress) => progress == null
-                      ? child
-                      : Container(
-                          color: AppColors.creamDark,
-                          child: const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                  errorBuilder: (_, _, _) => Container(
-                    color: AppColors.creamDark,
-                    child: Center(
-                      child: Icon(
-                        categoryIcon(widget.item.category),
-                        size: 56,
-                        color: AppColors.terracotta,
-                      ),
-                    ),
-                  ),
+                  height: 220,
                 ),
               ),
             ),

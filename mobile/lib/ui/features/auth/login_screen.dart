@@ -45,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
             Text(
               'Welcome back, neighbor',

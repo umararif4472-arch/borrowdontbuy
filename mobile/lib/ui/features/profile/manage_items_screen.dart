@@ -42,7 +42,12 @@ class ManageItemsScreen extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              CategoryTile(category: item.category, size: 44),
+                              ItemPhoto.forItem(
+                                item,
+                                width: 44,
+                                height: 44,
+                                radius: 12,
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(

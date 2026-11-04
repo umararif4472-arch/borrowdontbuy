@@ -121,7 +121,12 @@ class _ItemMapViewState extends State<ItemMapView> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Card(
               child: ListTile(
-                leading: CategoryTile(category: _selected!.category, size: 44),
+                leading: ItemPhoto.forItem(
+                  _selected!,
+                  width: 44,
+                  height: 44,
+                  radius: 12,
+                ),
                 title: Text(
                   _selected!.title,
                   maxLines: 1,

@@ -8,6 +8,9 @@ const List<String> kItemCategories = [
   'Electronics',
   'Sports',
   'Kids & Baby',
+  'Cars & Vehicles',
+  'Houses & Places',
+  'Indoor Sports',
   'Other',
 ];
 

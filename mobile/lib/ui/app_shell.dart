@@ -36,7 +36,7 @@ class _AppShellState extends State<AppShell> {
         icon: const Icon(Icons.add),
         label: const Text('List item'),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),

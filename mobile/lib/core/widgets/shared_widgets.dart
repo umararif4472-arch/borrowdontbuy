@@ -1,8 +1,16 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/trust_score.dart';
+import '../../data/models/item.dart';
 import '../../data/models/user.dart';
+
+/// Bottom inset for tab lists, so the last row always scrolls clear of
+/// the floating "List item" button and the navigation bar.
+const double kBottomListPadding = 96.0;
 
 IconData categoryIcon(String category) {
   switch (category) {
@@ -17,11 +25,151 @@ IconData categoryIcon(String category) {
     case 'Electronics':
       return Icons.devices;
     case 'Sports':
-      return Icons.sports_tennis;
+      return Icons.sports;
     case 'Kids & Baby':
       return Icons.child_friendly;
+    case 'Cars & Vehicles':
+      return Icons.directions_car;
+    case 'Houses & Places':
+      return Icons.house;
+    case 'Indoor Sports':
+      return Icons.sports_tennis;
     default:
       return Icons.inventory_2;
+  }
+}
+
+/// True for photo strings that should load over the network. Anything
+/// else is treated as a local file path (e.g. from the image picker).
+bool isNetworkPhotoSource(String source) =>
+    source.startsWith('http://') ||
+    source.startsWith('https://') ||
+    source.startsWith('blob:');
+
+/// Category tile used as the photo placeholder and error fallback.
+/// Expands to [width]/[height] when given; the icon stays modest.
+Widget _photoFallback(
+  String category, {
+  required double iconSize,
+  double? width,
+  double? height,
+}) => Container(
+  width: width,
+  height: height,
+  color: AppColors.creamDark,
+  child: Center(
+    child: Icon(
+      categoryIcon(category),
+      color: AppColors.terracotta,
+      size: iconSize,
+    ),
+  ),
+);
+
+/// Renders one photo [source] of an item, whatever kind of source it is:
+/// network URL (seeded picsum photos) or a local file path (photos picked
+/// on the phone, which live in the same photos list). Local files are
+/// web-guarded — on web a file path falls back to a network load attempt,
+/// which ends at the category fallback if it cannot load.
+Widget itemPhotoImage(
+  String source, {
+  required String category,
+  BoxFit fit = BoxFit.cover,
+  double fallbackSize = 72,
+  double? width,
+  double? height,
+}) {
+  if (isNetworkPhotoSource(source) || kIsWeb) {
+    return Image.network(
+      source,
+      fit: fit,
+      width: width,
+      height: height,
+      loadingBuilder: (context, child, progress) => progress == null
+          ? child
+          : _photoFallback(
+              category,
+              iconSize: fallbackSize * 0.5,
+              width: width,
+              height: height,
+            ),
+      errorBuilder: (_, _, _) => _photoFallback(
+        category,
+        iconSize: fallbackSize * 0.5,
+        width: width,
+        height: height,
+      ),
+    );
+  }
+  return Image.file(
+    File(source),
+    fit: fit,
+    width: width,
+    height: height,
+    errorBuilder: (_, _, _) => _photoFallback(
+      category,
+      iconSize: fallbackSize * 0.5,
+      width: width,
+      height: height,
+    ),
+  );
+}
+
+/// Square photo thumbnail for an item: its first photo when it has one,
+/// the category tile when it truly has none.
+class ItemPhoto extends StatelessWidget {
+  final String? photo;
+  final String category;
+  final double width;
+  final double height;
+  final double radius;
+
+  const ItemPhoto({
+    super.key,
+    required this.photo,
+    required this.category,
+    this.width = 72,
+    this.height = 72,
+    this.radius = 14,
+  });
+
+  factory ItemPhoto.forItem(
+    Item item, {
+    Key? key,
+    double width = 72,
+    double height = 72,
+    double radius = 14,
+  }) {
+    return ItemPhoto(
+      key: key,
+      photo: item.photos.isEmpty ? null : item.photos.first,
+      category: item.category,
+      width: width,
+      height: height,
+      radius: radius,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (photo == null) {
+      return CategoryTile(category: category, size: width);
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: itemPhotoImage(
+          photo!,
+          category: category,
+          fit: BoxFit.cover,
+          fallbackSize: width,
+          width: width,
+          height: height,
+        ),
+      ),
+    );
   }
 }
 

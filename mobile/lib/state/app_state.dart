@@ -11,6 +11,24 @@ import '../data/models/message.dart';
 import '../data/models/app_notification.dart';
 import '../data/mock/seed_data.dart';
 
+/// Groups [items] by category for the sectioned Explore list. Sections
+/// follow the canonical [kItemCategories] order (any unknown category
+/// keeps its first-seen order at the end), and empty categories are
+/// omitted entirely.
+Map<String, List<Item>> groupItemsByCategory(List<Item> items) {
+  final grouped = <String, List<Item>>{};
+  for (final category in kItemCategories) {
+    final inCategory = items.where((i) => i.category == category).toList();
+    if (inCategory.isNotEmpty) grouped[category] = inCategory;
+  }
+  for (final item in items) {
+    if (!kItemCategories.contains(item.category)) {
+      grouped.putIfAbsent(item.category, () => []).add(item);
+    }
+  }
+  return grouped;
+}
+
 class AppState extends ChangeNotifier {
   static const _kSessionUserId = 'sessionUserId';
   static const _kOnboardingSeen = 'onboardingSeen';
@@ -308,6 +326,7 @@ class AppState extends ChangeNotifier {
     int? dailyFee,
     String pickupPreference = 'either',
     String pickupInstructions = '',
+    List<String> photos = const [],
   }) {
     _idCounter++;
     final item = Item(
@@ -317,6 +336,7 @@ class AppState extends ChangeNotifier {
       description: description.trim(),
       category: category,
       condition: condition.trim(),
+      photos: List.of(photos),
       location: currentUser.homeLocation,
       availability: 'available',
       borrowTerms: BorrowTerms(
@@ -527,6 +547,7 @@ class AppState extends ChangeNotifier {
     int? dailyFee,
     String? pickupPreference,
     String? pickupInstructions,
+    List<String>? photos,
   }) {
     final idx = _items.indexWhere((i) => i.id == itemId);
     if (idx < 0) return null;
@@ -536,6 +557,7 @@ class AppState extends ChangeNotifier {
       category: category,
       description: description.trim(),
       condition: condition.trim(),
+      photos: photos,
       borrowTerms: old.borrowTerms.copyWith(
         maxDurationDays: maxDurationDays,
         depositAmount: depositAmount,
@@ -740,6 +762,122 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ---------------- Item & user threads (ask the owner) ----------------
+
+  /// True when [m] belongs to the two-person thread between the current
+  /// user and [otherUserId] for [itemId] (null itemId = general user
+  /// thread). Request-thread messages never match.
+  bool _inPairThread(Message m, String? itemId, String otherUserId) {
+    if (m.requestId != null || m.itemId != itemId) return false;
+    final me = currentUser.id;
+    return (m.senderId == me && m.otherUserId == otherUserId) ||
+        (m.senderId == otherUserId && m.otherUserId == me);
+  }
+
+  /// Messages where a neighbor asks the owner about one listing,
+  /// before (or without) sending a borrow request.
+  List<Message> messagesForItemThread(String itemId, String otherUserId) {
+    final list =
+        _messages.where((m) => _inPairThread(m, itemId, otherUserId)).toList()
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return list;
+  }
+
+  /// Messages in the general thread between the current user and
+  /// [otherUserId] (opened from their profile — not tied to an item).
+  List<Message> messagesForUserThread(String otherUserId) {
+    final list =
+        _messages.where((m) => _inPairThread(m, null, otherUserId)).toList()
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return list;
+  }
+
+  Message? lastMessageForItemThread(String itemId, String otherUserId) {
+    final list = messagesForItemThread(itemId, otherUserId);
+    return list.isEmpty ? null : list.last;
+  }
+
+  Message? lastMessageForUserThread(String otherUserId) {
+    final list = messagesForUserThread(otherUserId);
+    return list.isEmpty ? null : list.last;
+  }
+
+  void sendItemMessage(String itemId, String otherUserId, String body) {
+    _sendPairMessage(itemId: itemId, otherUserId: otherUserId, body: body);
+  }
+
+  void sendUserMessage(String otherUserId, String body) {
+    _sendPairMessage(itemId: null, otherUserId: otherUserId, body: body);
+  }
+
+  void _sendPairMessage({
+    required String? itemId,
+    required String otherUserId,
+    required String body,
+  }) {
+    final text = body.trim();
+    if (text.isEmpty) return;
+    _idCounter++;
+    _messages.add(
+      Message(
+        id: 'msg-new-$_idCounter',
+        itemId: itemId,
+        otherUserId: otherUserId,
+        senderId: currentUser.id,
+        body: text,
+        createdAt: DateTime.now(),
+      ),
+    );
+    notifyListeners();
+  }
+
+  /// Every conversation the current user is part of — request threads,
+  /// item inquiries, and general user threads — most recently active
+  /// first. This is what the Messages screen lists.
+  List<Conversation> get conversations {
+    final out = <Conversation>[];
+    for (final r in myConversations) {
+      out.add(
+        Conversation(
+          key: 'request:${r.id}',
+          requestId: r.id,
+          itemId: r.itemId,
+          item: itemByIdOrNull(r.itemId),
+          other: otherPartyFor(r),
+          lastMessage: lastMessageFor(r.id),
+          lastActivity: lastMessageFor(r.id)?.createdAt ?? r.createdAt,
+        ),
+      );
+    }
+    final seen = <String>{};
+    for (final m in _messages) {
+      if (m.requestId != null) continue;
+      final me = currentUser.id;
+      if (m.senderId != me && m.otherUserId != me) continue;
+      final otherId = m.senderId == me ? m.otherUserId : m.senderId;
+      if (otherId == null) continue;
+      final key = m.itemId != null
+          ? 'item:${m.itemId}:$otherId'
+          : 'user:$otherId';
+      if (!seen.add(key)) continue;
+      final last = m.itemId != null
+          ? lastMessageForItemThread(m.itemId!, otherId)
+          : lastMessageForUserThread(otherId);
+      out.add(
+        Conversation(
+          key: key,
+          itemId: m.itemId,
+          item: m.itemId != null ? itemByIdOrNull(m.itemId!) : null,
+          other: userById(otherId),
+          lastMessage: last,
+          lastActivity: last?.createdAt ?? m.createdAt,
+        ),
+      );
+    }
+    out.sort((a, b) => b.lastActivity.compareTo(a.lastActivity));
+    return out;
+  }
+
   // ---------------- Derived notifications ----------------
 
   List<DerivedNotification> get derivedNotifications {
@@ -881,4 +1019,29 @@ class AppState extends ChangeNotifier {
 
   int get notificationBadgeCount =>
       derivedNotifications.where((n) => n.kind == 'action').length;
+}
+
+/// One row in the Messages list: a borrow-request thread, an item
+/// inquiry, or a general user thread. [requestId] is set only for
+/// request threads; [itemId] is set for request and item threads.
+class Conversation {
+  final String key;
+  final String? requestId;
+  final String? itemId;
+  final Item? item;
+  final AppUser other;
+  final Message? lastMessage;
+  final DateTime lastActivity;
+  const Conversation({
+    required this.key,
+    this.requestId,
+    this.itemId,
+    this.item,
+    required this.other,
+    this.lastMessage,
+    required this.lastActivity,
+  });
+
+  bool get isRequestThread => requestId != null;
+  bool get isItemThread => requestId == null && itemId != null;
 }
