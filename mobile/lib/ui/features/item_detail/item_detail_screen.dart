@@ -53,16 +53,72 @@ class ItemDetailScreen extends StatelessWidget {
     final isOwn = item.ownerId == state.currentUser.id;
     final dist = distanceKm(state.currentUser.homeLocation, item.location);
     final itemReviews = state.reviewsForItem(item.id);
+    final isFavorite = state.isFavorite(item.id);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Item details'),
         actions: [
+          IconButton(
+            tooltip: isFavorite ? 'Remove from saved' : 'Save this item',
+            icon: Icon(
+              isFavorite ? Icons.favorite : Icons.favorite_border,
+              color: isFavorite ? AppColors.errorRed : null,
+            ),
+            onPressed: () => context.read<AppState>().toggleFavorite(item.id),
+          ),
           IconButton(
             tooltip: 'Share item',
             icon: const Icon(Icons.share_outlined),
             onPressed: () => _share(context, item),
           ),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Share item',
+                onPressed: () => _share(context, item),
+                icon: const Icon(Icons.share_outlined),
+              ),
+              if (!isOwn)
+                IconButton(
+                  tooltip: 'Message the owner',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChatScreen.forItem(
+                        itemId: item.id,
+                        otherUserId: owner.id,
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.chat_bubble_outline),
+                ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: isOwn
+                    ? const Text(
+                        'This is your listing — neighbors can request it from Explore.',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      )
+                    : !item.isAvailable
+                    ? Text(
+                        item.availability == 'borrowed'
+                            ? 'Currently borrowed — it cannot be requested right now.'
+                            : 'This item is currently unavailable.',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      )
+                    : ElevatedButton.icon(
+                        onPressed: () => _showRequestSheet(context, item.id),
+                        icon: const Icon(Icons.handshake_outlined),
+                        label: const Text('Request to borrow'),
+                      ),
+              ),
+            ],
+          ),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -124,102 +180,80 @@ class ItemDetailScreen extends StatelessWidget {
                             ],
                           ),
                         ),
-                        if (state.showTrustScores)
-                          Flexible(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerRight,
-                              child: TrustBadge(result: trust),
-                            ),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: TrustBadge(result: trust),
                           ),
+                        ),
                         const Icon(Icons.chevron_right, size: 20),
                       ],
                     ),
-                    if (state.showTrustScores) ...[
-                      const SizedBox(height: 12),
-                      _BreakdownRow(
-                        label: 'On-time returns',
-                        points: trust.breakdown.onTimeReturns,
-                        max: 40,
-                      ),
-                      _BreakdownRow(
-                        label: 'Reviews',
-                        points: trust.breakdown.reviews,
-                        max: 25,
-                      ),
-                      _BreakdownRow(
-                        label: 'Verified profile',
-                        points: trust.breakdown.verification,
-                        max: 10,
-                      ),
-                      _BreakdownRow(
-                        label: 'Account age',
-                        points: trust.breakdown.accountAge,
-                        max: 10,
-                      ),
-                      _BreakdownRow(
-                        label: 'Responsiveness',
-                        points: trust.breakdown.responsiveness,
-                        max: 15,
-                      ),
-                    ],
-                    Text(
-                      'Typically replies in ~${owner.avgResponseMinutes} min · tap to view profile',
-                      style: Theme.of(context).textTheme.bodySmall,
+                    const SizedBox(height: 12),
+                    _BreakdownRow(
+                      label: 'On-time returns',
+                      points: trust.breakdown.onTimeReturns,
+                      max: 40,
+                    ),
+                    _BreakdownRow(
+                      label: 'Reviews',
+                      points: trust.breakdown.reviews,
+                      max: 25,
+                    ),
+                    _BreakdownRow(
+                      label: 'Verified profile',
+                      points: trust.breakdown.verification,
+                      max: 10,
+                    ),
+                    _BreakdownRow(
+                      label: 'Account age',
+                      points: trust.breakdown.accountAge,
+                      max: 10,
+                    ),
+                    _BreakdownRow(
+                      label: 'Responsiveness',
+                      points: trust.breakdown.responsiveness,
+                      max: 15,
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Typically replies in ~${owner.avgResponseMinutes} min',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        if (!isOwn)
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ChatScreen.forItem(
+                                  itemId: item.id,
+                                  otherUserId: owner.id,
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.chat_bubble_outline,
+                              size: 16,
+                            ),
+                            label: const Text('Message'),
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          if (isOwn)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(14),
-                child: Text(
-                  'This is your listing — neighbors can request it from Explore.',
-                ),
-              ),
-            )
-          else if (!item.isAvailable)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Text(
-                  item.availability == 'borrowed'
-                      ? 'This item is currently borrowed and cannot be requested right now.'
-                      : 'This item is currently unavailable.',
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _showRequestSheet(context, item.id),
-                icon: const Icon(Icons.handshake_outlined),
-                label: const Text('Request to borrow'),
-              ),
-            ),
-          if (!isOwn) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ChatScreen.forItem(
-                      itemId: item.id,
-                      otherUserId: owner.id,
-                    ),
-                  ),
-                ),
-                icon: const Icon(Icons.chat_bubble_outline),
-                label: const Text('Ask about this item'),
-              ),
-            ),
-          ],
           const SizedBox(height: 24),
           Text(
             'Reviews for this item (${itemReviews.length})',
@@ -243,8 +277,8 @@ class ItemDetailScreen extends StatelessWidget {
     }
   }
 
-  void _showRequestSheet(BuildContext context, String itemId) {
-    showModalBottomSheet(
+  Future<void> _showRequestSheet(BuildContext context, String itemId) async {
+    final sent = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -252,6 +286,13 @@ class ItemDetailScreen extends StatelessWidget {
       ),
       builder: (_) => _BorrowSheet(itemId: itemId),
     );
+    if (sent == true && context.mounted) {
+      await showSuccessDialog(
+        context,
+        title: 'Request sent',
+        message: 'The owner can approve it from their Activity tab — watch yours for the reply.',
+      );
+    }
   }
 }
 
@@ -308,22 +349,29 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
             child: PageView.builder(
               itemCount: photos.length,
               onPageChanged: (i) => setState(() => _index = i),
-              itemBuilder: (context, i) => GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        PhotoGalleryScreen(item: widget.item, initialIndex: i),
+              itemBuilder: (context, i) {
+                final photo = GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PhotoGalleryScreen(
+                        item: widget.item,
+                        initialIndex: i,
+                      ),
+                    ),
                   ),
-                ),
-                child: itemPhotoImage(
-                  photos[i],
-                  category: widget.item.category,
-                  fit: BoxFit.cover,
-                  fallbackSize: 112,
-                  width: double.infinity,
-                  height: 220,
-                ),
-              ),
+                  child: itemPhotoImage(
+                    photos[i],
+                    category: widget.item.category,
+                    fit: BoxFit.cover,
+                    fallbackSize: 112,
+                    width: double.infinity,
+                    height: 220,
+                  ),
+                );
+                return i == 0
+                    ? Hero(tag: 'item-photo-${widget.item.id}', child: photo)
+                    : photo;
+              },
             ),
           ),
         ),
@@ -430,6 +478,18 @@ class _BorrowSheetState extends State<_BorrowSheet> {
     super.dispose();
   }
 
+  /// Quick ranges: each preset spans [spanDays] inclusive days starting
+  /// at [start], clamped so it never exceeds the item's max borrow days.
+  void _applyPreset(DateTime start, int spanDays, int maxDays) {
+    final span = spanDays > maxDays ? maxDays : spanDays;
+    final s = DateTime(start.year, start.month, start.day);
+    setState(() {
+      _start = s;
+      _end = s.add(Duration(days: span - 1));
+      _error = null;
+    });
+  }
+
   Future<void> _pick(bool isStart) async {
     final now = DateTime.now();
     final initial = isStart ? (_start ?? now) : (_end ?? _start ?? now);
@@ -475,7 +535,51 @@ class _BorrowSheetState extends State<_BorrowSheet> {
           ),
           const SizedBox(height: 4),
           Text(item.title, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            children: [
+              ActionChip(
+                avatar: const Icon(Icons.wb_sunny_outlined, size: 16),
+                label: const Text('Tomorrow'),
+                onPressed: () {
+                  final today = DateTime.now();
+                  _applyPreset(
+                    DateTime(today.year, today.month, today.day + 1),
+                    3,
+                    item.borrowTerms.maxDurationDays,
+                  );
+                },
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.weekend_outlined, size: 16),
+                label: const Text('This weekend'),
+                onPressed: () {
+                  final now = DateTime.now();
+                  var delta = (DateTime.saturday - now.weekday) % 7;
+                  if (delta == 0) delta = 7;
+                  _applyPreset(
+                    DateTime(now.year, now.month, now.day + delta),
+                    2,
+                    item.borrowTerms.maxDurationDays,
+                  );
+                },
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.event_outlined, size: 16),
+                label: const Text('Next week'),
+                onPressed: () {
+                  final now = DateTime.now();
+                  _applyPreset(
+                    DateTime(now.year, now.month, now.day + 7),
+                    3,
+                    item.borrowTerms.maxDurationDays,
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -573,15 +677,9 @@ class _BorrowSheetState extends State<_BorrowSheet> {
                   setState(() => _error = err);
                   return;
                 }
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Request sent — check the Activity tab for updates.',
-                    ),
-                  ),
-                );
-                Navigator.of(context).pop();
+                // Report success to the detail screen, which celebrates
+                // with the success dialog.
+                Navigator.of(context).pop(true);
               },
               child: const Text('Send request'),
             ),

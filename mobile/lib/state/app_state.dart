@@ -48,7 +48,7 @@ class AppState extends ChangeNotifier {
   bool isLoggedIn = true;
   bool onboardingSeen = true;
   bool notificationsEnabled = true;
-  bool showTrustScores = true;
+  final Set<String> _favoriteItemIds = {};
   SharedPreferences? _prefs;
 
   AppState() {
@@ -161,6 +161,23 @@ class AppState extends ChangeNotifier {
 
   List<Item> get myItems =>
       _items.where((i) => i.ownerId == currentUser.id).toList();
+
+  // ---------------- Favorites ----------------
+
+  Set<String> get favoriteItemIds => Set.unmodifiable(_favoriteItemIds);
+
+  bool isFavorite(String itemId) => _favoriteItemIds.contains(itemId);
+
+  void toggleFavorite(String itemId) {
+    if (!_favoriteItemIds.remove(itemId)) {
+      _favoriteItemIds.add(itemId);
+    }
+    notifyListeners();
+  }
+
+  /// Favorited items that still exist, in catalog order.
+  List<Item> get favoriteItems =>
+      _items.where((i) => _favoriteItemIds.contains(i.id)).toList();
 
   List<BorrowRequest> get incomingRequests {
     final myIds = myItems.map((i) => i.id).toSet();
@@ -492,7 +509,7 @@ class AppState extends ChangeNotifier {
     _seedAll();
     _currentUserId = 'u-maya';
     notificationsEnabled = true;
-    showTrustScores = true;
+    _favoriteItemIds.clear();
     _persistSession();
     notifyListeners();
   }
@@ -526,11 +543,6 @@ class AppState extends ChangeNotifier {
 
   void setNotificationsEnabled(bool value) {
     notificationsEnabled = value;
-    notifyListeners();
-  }
-
-  void setShowTrustScores(bool value) {
-    showTrustScores = value;
     notifyListeners();
   }
 

@@ -81,91 +81,81 @@ class UserProfileScreen extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 16),
-          if (state.showTrustScores)
-            Card(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const TrustExplainerScreen(),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            '${trust.total}',
-                            style: const TextStyle(
-                              fontSize: 44,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.terracotta,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Trust score',
-                                  style: TextStyle(fontWeight: FontWeight.w700),
-                                ),
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: TrustBadge(result: trust),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      _Bar(
-                        label: 'On-time returns',
-                        points: trust.breakdown.onTimeReturns,
-                        max: 40,
-                      ),
-                      _Bar(
-                        label: 'Reviews',
-                        points: trust.breakdown.reviews,
-                        max: 25,
-                      ),
-                      _Bar(
-                        label: 'Verified profile',
-                        points: trust.breakdown.verification,
-                        max: 10,
-                      ),
-                      _Bar(
-                        label: 'Account age',
-                        points: trust.breakdown.accountAge,
-                        max: 10,
-                      ),
-                      _Bar(
-                        label: 'Responsiveness',
-                        points: trust.breakdown.responsiveness,
-                        max: 15,
-                      ),
-                      Text(
-                        'Tap to see how trust works',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
+          Card(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TrustExplainerScreen()),
               ),
-            )
-          else
-            const Card(
               child: Padding(
-                padding: EdgeInsets.all(14),
-                child: Text('Trust scores are hidden in Settings.'),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '${trust.total}',
+                          style: const TextStyle(
+                            fontSize: 44,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.terracotta,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Trust score',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: TrustBadge(result: trust),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _Bar(
+                      label: 'On-time returns',
+                      points: trust.breakdown.onTimeReturns,
+                      max: 40,
+                    ),
+                    _Bar(
+                      label: 'Reviews',
+                      points: trust.breakdown.reviews,
+                      max: 25,
+                    ),
+                    _Bar(
+                      label: 'Verified profile',
+                      points: trust.breakdown.verification,
+                      max: 10,
+                    ),
+                    _Bar(
+                      label: 'Account age',
+                      points: trust.breakdown.accountAge,
+                      max: 10,
+                    ),
+                    _Bar(
+                      label: 'Responsiveness',
+                      points: trust.breakdown.responsiveness,
+                      max: 15,
+                    ),
+                    Text(
+                      'Tap to see how trust works',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
             ),
+          ),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -295,7 +285,7 @@ class UserProfileScreen extends StatelessWidget {
             _AccountTile(
               icon: Icons.settings_outlined,
               title: 'Settings',
-              subtitle: 'Notifications, trust display, sign out',
+              subtitle: 'Notifications, reset, sign out',
               onTap: () => Navigator.of(
                 context,
               ).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),

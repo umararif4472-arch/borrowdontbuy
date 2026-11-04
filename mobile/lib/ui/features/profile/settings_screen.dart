@@ -23,12 +23,6 @@ class SettingsScreen extends StatelessWidget {
             onChanged: (v) =>
                 context.read<AppState>().setNotificationsEnabled(v),
           ),
-          SwitchListTile(
-            title: const Text('Show trust scores'),
-            subtitle: const Text('Trust breakdowns on profiles'),
-            value: state.showTrustScores,
-            onChanged: (v) => context.read<AppState>().setShowTrustScores(v),
-          ),
           const Divider(height: 32),
           const ListTile(
             leading: Icon(Icons.info_outline),

@@ -282,7 +282,7 @@ class _ListItemScreenState extends State<ListItemScreen> {
     _saveDraft();
   }
 
-  void _publish() {
+  Future<void> _publish() async {
     final state = context.read<AppState>();
     if (_isEdit) {
       state.updateItem(
@@ -314,11 +314,12 @@ class _ListItemScreenState extends State<ListItemScreen> {
         photos: List.of(_photos),
       );
       ListItemDraft.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Listed — your item is now visible in Explore.'),
-        ),
+      await showSuccessDialog(
+        context,
+        title: 'Listing published',
+        message: 'Your item is now visible in Explore for neighbors to borrow.',
       );
+      if (!mounted) return;
     }
     Navigator.of(context).pop();
   }

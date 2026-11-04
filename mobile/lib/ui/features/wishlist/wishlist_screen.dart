@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shared_widgets.dart';
+import '../../../data/models/item.dart';
 import '../../../data/models/wishlist_item.dart';
 import '../../../state/app_state.dart';
+import '../item_detail/item_detail_screen.dart';
 
 class WishlistScreen extends StatelessWidget {
   const WishlistScreen({super.key});
@@ -18,16 +20,60 @@ class WishlistScreen extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
-      body: ListView.builder(
+      body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, kBottomListPadding),
-        itemCount: state.wishlist.length,
-        itemBuilder: (context, i) {
-          final w = state.wishlist[i];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _WishlistCard(item: w),
-          );
-        },
+        children: [
+          Text('Saved items', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (state.favoriteItems.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Text('Tap the heart on any item to save it here.'),
+            )
+          else
+            ...state.favoriteItems.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _SavedItemRow(item: item),
+              ),
+            ),
+          const SizedBox(height: 16),
+          Text(
+            'Community wishlist',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          ...state.wishlist.map(
+            (w) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _WishlistCard(item: w),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A favorited catalog item, saved from Explore / Item Detail hearts.
+class _SavedItemRow extends StatelessWidget {
+  final Item item;
+  const _SavedItemRow({required this.item});
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: ItemPhoto.forItem(item, width: 48, height: 48, radius: 12),
+        title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          item.borrowTerms.dailyFee == null
+              ? 'Free to borrow'
+              : '\$${item.borrowTerms.dailyFee}/day',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: item.id)),
+        ),
       ),
     );
   }

@@ -39,23 +39,22 @@ class LandingScreen extends StatelessWidget {
               'Borrow tools, gear, and party equipment from people on your block — free or for a small fee.',
               style: TextStyle(fontSize: 15, color: AppColors.barkLight),
             ),
+            const SizedBox(height: 24),
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _HowItWorksPoint(icon: Icons.search, label: 'Find it nearby'),
+                _HowItWorksPoint(
+                  icon: Icons.calendar_month_outlined,
+                  label: 'Request your dates',
+                ),
+                _HowItWorksPoint(
+                  icon: Icons.verified_outlined,
+                  label: 'Return, build trust',
+                ),
+              ],
+            ),
             const SizedBox(height: 28),
-            const _HowItWorks(
-              icon: Icons.search,
-              title: '1. Find it nearby',
-              body: 'Search the neighborhood catalog and check the distance and the owner\u2019s trust score.',
-            ),
-            const _HowItWorks(
-              icon: Icons.calendar_month_outlined,
-              title: '2. Request your dates',
-              body: 'Pick a start and end date. The owner approves, you pick it up, the clock starts.',
-            ),
-            const _HowItWorks(
-              icon: Icons.verified_outlined,
-              title: '3. Return it, build trust',
-              body: 'On-time returns and kind reviews raise your trust score — and everyone can see it.',
-            ),
-            const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -82,21 +81,15 @@ class LandingScreen extends StatelessWidget {
   }
 }
 
-class _HowItWorks extends StatelessWidget {
+/// One compact how-it-works point: icon over a 3–4 word label.
+class _HowItWorksPoint extends StatelessWidget {
   final IconData icon;
-  final String title;
-  final String body;
-  const _HowItWorks({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
+  final String label;
+  const _HowItWorksPoint({required this.icon, required this.label});
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Expanded(
+      child: Column(
         children: [
           Container(
             width: 44,
@@ -107,16 +100,11 @@ class _HowItWorks extends StatelessWidget {
             ),
             child: Icon(icon, color: AppColors.mossDark, size: 22),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 2),
-                Text(body, style: Theme.of(context).textTheme.bodyMedium),
-              ],
-            ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ],
       ),

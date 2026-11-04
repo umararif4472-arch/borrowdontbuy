@@ -327,3 +327,84 @@ class CategoryTile extends StatelessWidget {
     );
   }
 }
+
+/// Celebration feedback for a completed action: a moss-green check that
+/// pops in with a short easeOutBack scale animation, plus a short
+/// explanation. Used after publishing a listing and sending a request.
+Future<void> showSuccessDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (_) => _SuccessDialog(title: title, message: message),
+  );
+}
+
+class _SuccessDialog extends StatefulWidget {
+  final String title;
+  final String message;
+  const _SuccessDialog({required this.title, required this.message});
+  @override
+  State<_SuccessDialog> createState() => _SuccessDialogState();
+}
+
+class _SuccessDialogState extends State<_SuccessDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 250),
+  )..forward();
+  late final Animation<double> _scale = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutBack,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          ScaleTransition(
+            scale: _scale,
+            child: Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                color: AppColors.moss,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check, color: Colors.white, size: 40),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            widget.title,
+            style: Theme.of(context).textTheme.titleLarge,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(widget.message, textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

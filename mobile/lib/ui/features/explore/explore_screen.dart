@@ -20,6 +20,7 @@ class ExploreScreen extends StatefulWidget {
 
 class _ExploreScreenState extends State<ExploreScreen> {
   final _searchCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
   String _query = '';
   String? _category;
   double? _maxDistance;
@@ -29,7 +30,19 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  void _selectCategory(String category) {
+    setState(() => _category = category);
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   @override
@@ -44,20 +57,21 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final me = state.currentUser;
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              "Borrow Don't Buy",
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              '${me.neighborhood} · ${me.name}',
-              style: Theme.of(context).textTheme.bodySmall,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            const Icon(Icons.location_on_outlined, size: 19),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                me.neighborhood,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 19,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -209,65 +223,92 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           ),
           Expanded(
-            child: _showMap
-                ? ItemMapView(items: items, maxDistanceKm: _maxDistance)
-                : items.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.search_off,
-                            size: 56,
-                            color: AppColors.barkLight.withValues(alpha: 0.6),
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Nothing matches — try widening your distance',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              child: _showMap
+                  ? ItemMapView(
+                      key: const ValueKey('map'),
+                      items: items,
+                      maxDistanceKm: _maxDistance,
+                    )
+                  : items.isEmpty
+                  ? Center(
+                      key: const ValueKey('empty'),
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.search_off,
+                              size: 56,
+                              color: AppColors.barkLight.withValues(alpha: 0.6),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Or clear your search and category filters.',
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : Builder(
-                    builder: (context) {
-                      final grouped = groupItemsByCategory(items);
-                      return ListView(
-                        padding: const EdgeInsets.fromLTRB(
-                          16,
-                          8,
-                          16,
-                          kBottomListPadding,
-                        ),
-                        children: [
-                          for (final entry in grouped.entries) ...[
-                            _CategorySectionHeader(
-                              category: entry.key,
-                              count: entry.value.length,
-                              isFirst: entry.key == grouped.keys.first,
-                            ),
-                            for (final item in entry.value)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _ItemCard(item: item),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Nothing matches — try widening your distance',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Or clear your search and category filters.',
+                              textAlign: TextAlign.center,
+                            ),
                           ],
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                      ),
+                    )
+                  : Builder(
+                      key: const ValueKey('list'),
+                      builder: (context) {
+                        final grouped = groupItemsByCategory(items);
+                        return RefreshIndicator(
+                          onRefresh: () async {
+                            await Future<void>.delayed(
+                              const Duration(milliseconds: 600),
+                            );
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Listings are up to date.'),
+                              ),
+                            );
+                          },
+                          child: ListView(
+                            controller: _scrollCtrl,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(
+                              16,
+                              8,
+                              16,
+                              kBottomListPadding,
+                            ),
+                            children: [
+                              for (final entry in grouped.entries) ...[
+                                _CategorySectionHeader(
+                                  category: entry.key,
+                                  count: entry.value.length,
+                                  isFirst: entry.key == grouped.keys.first,
+                                  onTap: () => _selectCategory(entry.key),
+                                ),
+                                for (final item in entry.value)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _ItemCard(item: item),
+                                  ),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
           ),
         ],
       ),
@@ -276,35 +317,54 @@ class _ExploreScreenState extends State<ExploreScreen> {
 }
 
 /// Section header for one category group on Explore — the "separate
-/// portions" neighbours browse by.
+/// portions" neighbours browse by. Tapping it applies that category as
+/// the Explore filter (same as its chip above).
 class _CategorySectionHeader extends StatelessWidget {
   final String category;
   final int count;
   final bool isFirst;
+  final VoidCallback onTap;
   const _CategorySectionHeader({
     required this.category,
     required this.count,
     required this.isFirst,
+    required this.onTap,
   });
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(top: isFirst ? 4 : 18, bottom: 10),
-      child: Row(
-        children: [
-          Icon(categoryIcon(category), size: 20, color: AppColors.terracotta),
-          const SizedBox(width: 8),
-          Text(
-            category,
-            style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
+      padding: EdgeInsets.only(top: isFirst ? 4 : 18, bottom: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Icon(
+                categoryIcon(category),
+                size: 20,
+                color: AppColors.terracotta,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  category,
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                count == 1 ? '1 item' : '$count items',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const Icon(Icons.chevron_right, size: 18),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(
-            count == 1 ? '1 item' : '$count items',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -319,6 +379,8 @@ class _ItemCard extends StatelessWidget {
     final owner = state.userById(item.ownerId);
     final me = state.currentUser;
     final dist = distanceKm(me.homeLocation, item.location);
+    final trust = state.trustFor(owner);
+    final isFavorite = state.isFavorite(item.id);
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -326,15 +388,51 @@ class _ItemCard extends StatelessWidget {
           MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: item.id)),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              ItemPhoto.forItem(item, width: 72, height: 72),
+              Stack(
+                children: [
+                  Hero(
+                    tag: 'item-photo-${item.id}',
+                    child: ItemPhoto.forItem(item, width: 84, height: 84),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Material(
+                      color: Colors.white,
+                      shape: const CircleBorder(),
+                      elevation: 1,
+                      child: IconButton(
+                        tooltip: isFavorite
+                            ? 'Remove from saved'
+                            : 'Save this item',
+                        iconSize: 17,
+                        padding: const EdgeInsets.all(6),
+                        constraints: const BoxConstraints(
+                          minWidth: 30,
+                          minHeight: 30,
+                        ),
+                        onPressed: () =>
+                            context.read<AppState>().toggleFavorite(item.id),
+                        icon: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: isFavorite
+                              ? AppColors.errorRed
+                              : AppColors.bark,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       item.title,
@@ -344,60 +442,32 @@ class _ItemCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${item.category} · ${distanceLabel(dist)}',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      item.borrowTerms.dailyFee == null
+                          ? 'Free to borrow'
+                          : '\$${item.borrowTerms.dailyFee}/day',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.mossDark,
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        _MiniChip(
-                          text: item.borrowTerms.dailyFee == null
-                              ? 'Free'
-                              : '\$${item.borrowTerms.dailyFee}/day',
-                        ),
-                        _MiniChip(
-                          text: item.borrowTerms.depositAmount == null
-                              ? 'No deposit'
-                              : '\$${item.borrowTerms.depositAmount} deposit',
-                        ),
-                        _MiniChip(
-                          text: item.isAvailable
-                              ? 'Available'
-                              : item.availability == 'borrowed'
-                              ? 'Borrowed'
-                              : 'Unavailable',
-                          highlight: item.isAvailable,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
-                        UserAvatar(user: owner, radius: 12),
-                        const SizedBox(width: 6),
-                        Expanded(
+                        const Icon(
+                          Icons.star,
+                          size: 14,
+                          color: AppColors.amber,
+                        ),
+                        const SizedBox(width: 3),
+                        Flexible(
                           child: Text(
-                            owner.name,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            '${trust.total} · ${distanceLabel(dist)}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (state.showTrustScores)
-                          Flexible(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerRight,
-                              child: TrustBadge(
-                                result: state.trustFor(owner),
-                                compact: true,
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                   ],
@@ -405,32 +475,6 @@ class _ItemCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniChip extends StatelessWidget {
-  final String text;
-  final bool highlight;
-  const _MiniChip({required this.text, this.highlight = false});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: highlight
-            ? AppColors.moss.withValues(alpha: 0.12)
-            : AppColors.creamDark,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: highlight ? AppColors.mossDark : AppColors.bark,
         ),
       ),
     );
