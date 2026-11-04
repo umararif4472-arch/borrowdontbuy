@@ -1,5 +1,13 @@
 # Mobile App Prototype Implementation Plan (Flutter & Dart)
 
+> **Status: Implemented (2026-11-04).** The Flutter app now lives in
+> `mobile/` (see the README's "Run the mobile app" section). Two deviations
+> from the plan below, both deliberate: the in-memory repository is the only
+> data source for now (there is no Next.js `/api` in this repo to connect
+> to — the web app is Vite + an in-browser mock layer), and platforms are
+> scaffolded for Android, Web, and Windows. The plan is kept as the design
+> record.
+
 Convert the "Borrow Don't Buy" hyperlocal lending network into a mobile application built with Flutter & Dart, structured around clean architecture, modern mobile UX, and a high-fidelity prototype that runs on Windows Desktop, Web, and mobile devices (Android/iOS).
 
 ## User Review Required

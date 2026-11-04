@@ -10,7 +10,14 @@ system instead of payment processing.
 **Fully working prototype** — every button, form, and flow runs end-to-end
 against an in-memory mock data layer with simulated network latency.
 
-## Run it
+This repo has two apps for the same product:
+
+- **Web** (repo root) — React + TypeScript + Vite, described below.
+- **Mobile** (`mobile/`) — Flutter + Dart port with the same seed data,
+  trust-score formula, and request lifecycle. See
+  [Run the mobile app](#run-the-mobile-app-flutter).
+
+## Run it (web)
 
 ```bash
 npm install
@@ -20,13 +27,29 @@ npm run dev        # → http://localhost:5173
 Other scripts:
 
 ```bash
-npm test           # 65 unit tests (pure utils + form reducer)
+npm test           # 98 unit tests (pure utils + form reducer)
 npm run build      # type-check (tsc) + production build
 npm run preview    # serve the production build
 ```
 
 You're "signed in" as **Maya Chen** (`u-maya`, Richmond) — the mock session
 user.
+
+## Run the mobile app (Flutter)
+
+```bash
+cd mobile
+flutter pub get
+flutter run -d chrome     # or: flutter run -d windows / an Android device
+flutter test              # trust-score + app-state unit tests
+flutter analyze
+```
+
+The Flutter app lives in `mobile/lib/` — feature-first screens
+(explore, item detail, list item, activity, wishlist, profile) over a
+single `AppState` (`provider`), with models, seed data, and the trust-score
+calculator ported 1:1 from the web app so both clients agree on scores.
+State is in-memory, same as the web prototype.
 
 ## Architecture
 
@@ -80,7 +103,7 @@ src/
 ### Request lifecycle
 
 ```
-pending → approved → active → completed
+pending → approved → active → returned → reviewed
    ↘ declined    (markPickedUp)  (markReturned — updates user stats,
                                    which feeds the trust score)
 ```
